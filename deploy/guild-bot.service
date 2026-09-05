@@ -1,0 +1,15 @@
+[Unit]
+Description=guild-bot (Discord guild manager)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/opt/guild-bot
+ExecStart=/opt/guild-bot/venv/bin/python /opt/guild-bot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

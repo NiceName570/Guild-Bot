@@ -1,0 +1,7 @@
+[Unit]
+Description=Snapshot guild-bot database
+
+[Service]
+Type=oneshot
+User=opc
+ExecStart=/opt/guild-bot/deploy/backup.sh
