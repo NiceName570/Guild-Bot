@@ -1,9 +1,10 @@
 # AWS deployment preparation — us-east-2 only
 
-**Status: local implementation tested; bot connected locally to Discord with 14
-guild slash commands on October 17, 2026; no AWS resources provisioned.** Discord
-credentials and IDs are now configured privately. Manager-channel setup needs
-Manage Channels permission. AWS CLI/login remain pending: automatic approval review
+**Status checked October 17, 2026: bot connected locally to Discord with 17
+guild slash commands; no AWS resources provisioned.** Discord credentials and IDs
+are configured privately, Server Members Intent is enabled, Manage Channels is
+granted, and the management channel exists. The leader/four officers are unassigned
+and all weekly schedules are paused. AWS CLI/login remain pending: automatic approval review
 blocked the attempted official per-user CLI installer command as "blocked by policy"
 without a more specific reason. No installer was run. Do not paste
 tokens or AWS credentials into chat or commit them to Git.

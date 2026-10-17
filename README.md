@@ -1,13 +1,21 @@
-# Discord clan manager
+# Buddys Discord clan manager
 
 Automatic private event invitations and RSVP stats for a Diablo Immortal clan.
 Built on the existing Python/discord.py bot on branch `clan-manager-aws`.
 
-**Status:** implemented and tested locally; connected to the target Discord server
-on October 17, 2026, with 14 guild slash commands registered. Manager-channel
-setup is pending Manage Channels permission and manager/recipient assignments;
-automatic invitations are not configured. Not deployed to AWS yet. The original Oracle bot was not changed or
-contacted. Its historical notes are preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
+**Status checked October 17, 2026:** `buddysclanmanager` is running on the developer's
+Windows PC in the configured clan server, with **17 guild slash commands** registered.
+Server Members Intent is enabled, Manage Channels is granted, and the management
+channel has been created. The leader/four officers have not yet been assigned, and
+all three weekly schedules are **paused**. There are no live events or confirmed
+clan registrations in the current database. **AWS deployment is not complete.**
+
+The current build passed **77 automated tests**. These include mocked Discord
+interactions; a real event RSVP, new-member signup, and scheduled send still need
+user verification in Discord. The original Oracle bot was not contacted or changed.
+Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
+
+For another developer or a fresh chat, start with **[HANDOFF.md](HANDOFF.md)**.
 
 ## Weekly schedule
 
@@ -19,7 +27,8 @@ contacted. Its historical notes are preserved in [docs/ORIGINAL_README.md](docs/
 
 America/New_York throughout, following daylight saving time. No automatic reminders.
 Schedules begin paused and send automatically once managers configure and enable
-them. Roles and individually selected players are combined and deduplicated.
+them. Registered Buddys members, selected roles, and individually selected players
+are combined and deduplicated. Registration does not enable a paused schedule.
 
 Going opens a form for armor, armor penetration, potency, and resistance, prefilled
 with the player's latest values. All four valid numbers are required before the
@@ -37,7 +46,7 @@ Python 3.11+ (3.12 tested):
 ```powershell
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r requirements-frozen.txt
-Copy-Item .env.example .env
+if (-not (Test-Path -LiteralPath '.env')) { Copy-Item .env.example .env }
 ```
 
 For a local setup window with a masked token field, run
@@ -67,6 +76,8 @@ preview; Save schedule enables automatic delivery. `/schedules` shows state.
 
 ## Discord commands
 
+### New-member signup
+
 New human members of the configured server receive one private welcome asking
 whether they belong to **Buddys**. Yes opens an in-game-name form; submitting it
 automatically adds them to future recurring event invitations, alongside saved
@@ -81,12 +92,17 @@ Managers can use `/members` for the private registration list and welcome DM fai
 The test panel's **Test new-member signup** button exercises the flow privately
 without enrolling the tester in the real roster.
 
-**Try it privately:** use `/test-bot` or the **Test bot** button. The test panel
+### Private testing
+
+**Try it privately:** use `/test-bot` or the **Test bot** button already sent to the
+configured owner's DMs. Open a fresh panel after a bot restart. The test panel
 can DM an RSVP invitation or announcement only to you, show your test list,
 exercise corrections/cancellation, and preview the calendar. Test events/stats
 use separate ignored test-data databases. No clan recipient roles are contacted.
 Test DM buttons survive restarts; test events close after one hour. A Test bot
 button is also posted in the management channel when `/clan-setup` runs.
+
+### Command reference
 
 | Command | Access / purpose |
 | --- | --- |
@@ -148,3 +164,20 @@ Run offline validation (no Discord login, AWS calls, or player DMs):
 Source: `bot.py` (Discord UI/dispatch), `clan.py` (SQLite/rules/calendar),
 `instance_lock.py` (single-process protection), `deploy/aws/` (staging/preflight).
 Full decisions: [docs/APPROVED_SPEC.md](docs/APPROVED_SPEC.md).
+
+## Finish clan setup
+
+1. The configured owner runs `/management` and chooses the leader and four officers.
+   Exactly six distinct people have management access, including the owner.
+2. Existing clan members can use `/join-buddys`; new arrivals get the welcome DM.
+   Managers may also select roles/individuals with `/recipients` per schedule.
+3. Review `/recipient-preview`. Confirm the players who will actually receive DMs.
+4. Use `/test-bot` to exercise event responses, stats, corrections, cancellation,
+   announcements, onboarding, and the calendar using only the tester's account.
+5. Use `/schedule` separately for thursday, saturday, and sunday, review the preview,
+   and save with enabled=true. This enables real automatic messages at the listed times.
+6. Complete the AWS preflight and deployment in [docs/AWS.md](docs/AWS.md) when
+   installation/authentication is available. Do not confuse local uptime with AWS hosting.
+
+Do not run a second production process while the current bot is running. See the
+handoff for current local paths, backup, restart, and verification instructions.

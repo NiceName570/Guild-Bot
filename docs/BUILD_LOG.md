@@ -121,3 +121,20 @@ Failed/uncertain welcomes are not blindly resent; /join-buddys is the private fa
 and /members is the manager-only signup/delivery list. Persistent welcome buttons,
 current-server membership check before form submission, strict per-user controls,
 and isolated Test new-member signup button added. Schema changes are additive.
+
+## Documentation and handoff refresh — October 17, 2026
+
+At the owner's request, updated README.md and docs/AWS.md and wrote HANDOFF.md.
+Read-only live checks confirmed 17 guild commands, Manage Channels granted, one
+management settings row, no stored manager assignments, all three schedules paused,
+zero live events/active registrations/welcome rows, and a connected latest gateway
+log without a traceback. Worker/launcher process identities were checked. Full
+private Discord configuration is present and remains excluded from Git.
+Manage Channels was granted after the owner's explicit confirmation in chat and
+verified by Discord REST; this resolves the earlier permission-blocked snapshot.
+The current management channel was set up after that earlier snapshot.
+README/handoff distinguish local hosting from pending AWS deployment and document
+the installer policy rejection, next steps, safe operation, testing evidence,
+privacy boundaries, and later-requested onboarding/testing features. Historical
+entries and the original README remain preserved. No source behavior or live
+configuration changed during this documentation update.
