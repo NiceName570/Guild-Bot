@@ -165,7 +165,7 @@ class RSVPView(SafeView):
             button = discord.ui.Button(
                 label=label,
                 style=style,
-                custom_id=f"clan:{event_id}:{recipient_id}:{choice}",
+                custom_id=f"{getattr(client, 'component_namespace', 'clan')}:{event_id}:{recipient_id}:{choice}",
             )
             button.callback = self.going if choice == "going" else self.not_going
             self.add_item(button)
@@ -347,6 +347,192 @@ class DraftModal(discord.ui.Modal):
         )
 
 
+class TestSession:
+    """One tester's separate database; never resolves or messages real recipient roles."""
+
+    def __init__(self, client, user_id):
+        self.client, self.user_id = client, user_id
+        self.component_namespace = f"test{user_id}"
+        self.require_manager = client.require_manager
+        self.fetch_user = client.fetch_user
+        directory = Path(client.store.path).parent / "test-data"
+        self.store = Store(directory / f"{client.guild_id}-{user_id}.db")
+        self.store.cleanup(now_ts())
+
+    def latest_event(self):
+        row = self.store.one("SELECT * FROM clan_events ORDER BY id DESC LIMIT 1")
+        if not row:
+            raise ValueError("Click Test event DM first.")
+        return row
+
+    async def send_event(self, name):
+        timestamp = now_ts()
+        event_id = self.store.create_event(
+            self.client.guild_id,
+            "[TEST] Shadow War",
+            DEFAULT_BODY,
+            timestamp + 3600,
+            timestamp - 1,
+            self.user_id,
+            timestamp,
+        )
+        self.store.snapshot(event_id, {self.user_id: name})
+        event = self.store.event(event_id)
+        await ClanBot.deliver_recipients(self, event)
+        return self.store.recipient(event_id, self.user_id)
+
+
+class TestLauncher(SafeView):
+    def __init__(self, client):
+        super().__init__(timeout=None)
+        self.client = client
+
+    @discord.ui.button(
+        label="Test bot", emoji="🧪", style=discord.ButtonStyle.primary, custom_id="clan:test-panel"
+    )
+    async def open_panel(self, interaction, button):
+        # A DM has no guild_id; bind authorization to the configured server explicitly.
+        if interaction.guild_id not in (
+            None,
+            self.client.guild_id,
+        ) or not self.client.store.is_manager(
+            self.client.guild_id, interaction.user.id, self.client.owner_id
+        ):
+            raise PermissionError("Only the selected managers can test this bot.")
+        await private_reply(
+            interaction, TestPanel.DESCRIPTION, view=TestPanel(self.client, interaction.user.id)
+        )
+
+
+class TestPanel(SafeView):
+    DESCRIPTION = (
+        "**Private bot test panel**\n"
+        "Test event DMs, Going/Not going, the four-stat form, saved-stat prefill, "
+        "announcements, corrections, cancellation, and the response list.\n"
+        "Only **you** receive test messages. Test responses and stats are stored separately "
+        "from the clan's real events. Test events close after one hour.\n"
+        "Use Test list after replying to see the updated result."
+    )
+
+    def __init__(self, client, user_id):
+        super().__init__(timeout=900)
+        self.client, self.user_id = client, user_id
+        self.session = client.test_session(user_id)
+
+    async def interaction_check(self, interaction):
+        if (
+            interaction.user.id != self.user_id
+            or not self.client.store.is_manager(
+                self.client.guild_id, interaction.user.id, self.client.owner_id
+            )
+            or interaction.guild_id not in (None, self.client.guild_id)
+        ):
+            raise PermissionError("Open your own authorized test panel.")
+        return True
+
+    @discord.ui.button(label="Test event DM", style=discord.ButtonStyle.success)
+    async def event_dm(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        row = await self.session.send_event(interaction.user.display_name)
+        if row["delivery"] == "sent":
+            await private_reply(
+                interaction,
+                "Test invitation sent to your DMs. Try Going and the stats form, "
+                "then Not going. Test list shows your saved response.",
+            )
+        else:
+            await private_reply(
+                interaction,
+                f"Test DM delivery: **{row['delivery']}**. "
+                "Check your Discord DM settings. Use Test list to see the failure.",
+            )
+
+    @discord.ui.button(label="Test list", style=discord.ButtonStyle.secondary)
+    async def test_list(self, interaction, button):
+        event = self.session.latest_event()
+        pages = report_pages(
+            event,
+            self.session.store.recipients(event["id"]),
+            self.session.store.rows(
+                "SELECT * FROM clan_audit WHERE event_id=? ORDER BY id", (event["id"],)
+            ),
+            now_ts(),
+        )
+        await private_reply(interaction, "**TEST DATA — only you**\n" + pages[0])
+
+    @discord.ui.button(label="Test announcement", style=discord.ButtonStyle.secondary)
+    async def announcement(self, interaction, button):
+        user = await self.client.fetch_user(self.user_id)
+        await interaction.response.defer(ephemeral=True)
+        await user.send(
+            "**[TEST] Clan announcement**\nThis is a test announcement sent only to you. "
+            "There are no RSVP buttons on announcements."
+        )
+        await private_reply(interaction, "Test announcement sent only to you.")
+
+    @discord.ui.button(label="Test correction", style=discord.ButtonStyle.secondary)
+    async def correction(self, interaction, button):
+        event = self.session.latest_event()
+        if event["state"] == "cancelled" or now_ts() >= event["starts_at"]:
+            raise ValueError("Create a new test event first; this one is closed.")
+        # No manager_id: all test actions are bound to the tester, including DMs.
+        # Record as a manager correction on submit through the isolated session.
+        await interaction.response.send_modal(
+            TestCorrectionModal(
+                self.session,
+                event["id"],
+                self.user_id,
+                self.session.store.last_stats(self.client.guild_id, self.user_id),
+            )
+        )
+
+    @discord.ui.button(label="Cancel test event", style=discord.ButtonStyle.danger)
+    async def cancel(self, interaction, button):
+        event = self.session.latest_event()
+        if event["state"] == "cancelled":
+            raise ValueError("Already cancelled. Click Test event DM to create another.")
+        await interaction.response.defer(ephemeral=True)
+        self.session.store.cancel(event["id"], self.user_id)
+        await ClanBot.send_cancellations(self.session, self.session.store.event(event["id"]))
+        await private_reply(
+            interaction,
+            "Test event cancelled. The cancellation notice goes only to you. "
+            "Its Going/Not going buttons now reject further changes.",
+        )
+
+    @discord.ui.button(label="Preview calendar", style=discord.ButtonStyle.secondary, row=1)
+    async def calendar(self, interaction, button):
+        from clan import DEFAULT_SCHEDULES, occurrences
+
+        lines = ["**Calendar preview — no invitations will be sent**"]
+        for _, title, weekday in DEFAULT_SCHEDULES:
+            starts, sends = next(occurrences(weekday, now_ts()))
+            lines.append(f"**{title}**\nDM: <t:{sends}:F>\nEvent: <t:{starts}:F>")
+        lines.append("Eastern schedule with daylight saving changes. No automatic reminders.")
+        await private_reply(interaction, "\n\n".join(lines))
+
+
+class TestCorrectionModal(StatsModal):
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.subject_id or not self.client.client.store.is_manager(
+            self.client.client.guild_id, interaction.user.id, self.client.client.owner_id
+        ):
+            raise PermissionError("Only this authorized tester can correct the test response.")
+        try:
+            values = validate_stats([field.value for field in self.inputs])
+        except ValueError as exc:
+            await private_reply(
+                interaction, str(exc) + " Open Test correction again to fix the values."
+            )
+            return
+        self.client.store.respond(
+            self.event_id, self.subject_id, "going", values, now_ts(), self.subject_id
+        )
+        await private_reply(
+            interaction, "Test correction saved and audited. Test list shows who changed it."
+        )
+
+
 class ClanBot(discord.Client):
     def __init__(self, store, owner_id, guild_id):
         intents = discord.Intents.default()
@@ -356,7 +542,13 @@ class ClanBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
         self.dispatch_lock = asyncio.Lock()
         self.last_cleanup = 0
+        self.test_sessions = {}
         self.register_commands()
+
+    def test_session(self, user_id):
+        if user_id not in self.test_sessions:
+            self.test_sessions[user_id] = TestSession(self, user_id)
+        return self.test_sessions[user_id]
 
     def require_owner(self, interaction):
         if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
@@ -383,6 +575,23 @@ class ClanBot(discord.Client):
         return text
 
     async def setup_hook(self):
+        self.add_view(TestLauncher(self))
+        directory = Path(self.store.path).parent / "test-data"
+        if directory.exists():
+            for path in directory.glob(f"{self.guild_id}-*.db"):
+                user_text = path.stem.split("-")[-1]
+                if not user_text.isdecimal():
+                    continue
+                session = self.test_session(int(user_text))
+                for row in session.store.rows(
+                    "SELECT r.* FROM clan_recipients r JOIN clan_events e ON "
+                    "e.id=r.event_id WHERE e.starts_at>? AND e.state!='cancelled'",
+                    (now_ts(),),
+                ):
+                    self.add_view(
+                        RSVPView(session, row["event_id"], row["user_id"]),
+                        message_id=row["message_id"],
+                    )
         for row in self.store.rows(
             "SELECT r.event_id,r.user_id,r.message_id FROM clan_recipients r "
             "JOIN clan_events e ON e.id=r.event_id WHERE e.starts_at>? AND e.state!='cancelled'",
@@ -493,6 +702,9 @@ class ClanBot(discord.Client):
             self.store.snapshot(
                 event["id"], await self.resolve_targets(guild, event["schedule_id"])
             )
+        await self.deliver_recipients(event)
+
+    async def deliver_recipients(self, event):
         for row in self.store.recipients(event["id"]):
             current = self.store.event(event["id"])
             if current["state"] == "cancelled" or now_ts() >= current["starts_at"]:
@@ -650,6 +862,16 @@ class ClanBot(discord.Client):
         await self.close()
 
     def register_commands(self):
+        @self.tree.command(
+            name="test-bot", description="Managers: open your private bot test buttons"
+        )
+        @app_commands.guild_only()
+        async def test_bot(interaction: discord.Interaction):
+            self.require_manager(interaction)
+            await private_reply(
+                interaction, TestPanel.DESCRIPTION, view=TestPanel(self, interaction.user.id)
+            )
+
         @self.tree.error
         async def command_error(interaction, error):
             original = getattr(error, "original", error)
@@ -692,6 +914,10 @@ class ClanBot(discord.Client):
                     reason="Private clan event lists; selected managers only",
                 )
             self.store.configure(guild.id, channel.id, now_ts())
+            await channel.send(
+                "**Bot testing** — only the manager who clicks receives test messages.",
+                view=TestLauncher(self),
+            )
             await private_reply(
                 interaction,
                 f"Private channel: {channel.mention}. Next use /management, /recipients, then /schedule. "

@@ -67,8 +67,16 @@ preview; Save schedule enables automatic delivery. `/schedules` shows state.
 
 ## Discord commands
 
+**Try it privately:** use `/test-bot` or the **Test bot** button. The test panel
+can DM an RSVP invitation or announcement only to you, show your test list,
+exercise corrections/cancellation, and preview the calendar. Test events/stats
+use separate ignored test-data databases. No clan recipient roles are contacted.
+Test DM buttons survive restarts; test events close after one hour. A Test bot
+button is also posted in the management channel when `/clan-setup` runs.
+
 | Command | Access / purpose |
 | --- | --- |
+| `/test-bot` | Six managers: private testing panel; only the tester receives test messages |
 | `/clan-setup` | Owner only: create/repair private management channel |
 | `/management` | Owner only: assign leader + four officers |
 | `/recipients` | Six managers: select roles/players to add or remove per schedule |

@@ -344,6 +344,7 @@ class DiscordTests(StoreFixture, unittest.IsolatedAsyncioTestCase):
 
     async def test_commands_register_and_serialize_without_network(self):
         expected = {
+            "test-bot",
             "clan-setup",
             "management",
             "recipients",

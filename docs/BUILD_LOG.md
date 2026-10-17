@@ -95,3 +95,14 @@ Automatic approval review rejected the command before execution with "blocked by
 policy"; it supplied no additional reason. Installer not run; did not retry via
 another execution path. AWS CLI/authentication and real Free-plan verification
 remain pending. No AWS resources created and no AWS login invocation attempted.
+
+## Follow-up: private test buttons
+
+Owner requested a test button for events and other features. Added persistent
+Test bot launcher and /test-bot, with a private panel for test event DM, real RSVP
+buttons/stats form, list, announcement, audited correction, cancellation, and a
+calendar preview. Test recipient is hard-bound to the manager who opened the
+panel. Test databases and component IDs are separate from production, so test
+stats and event IDs cannot alter or collide with real events. Test buttons restore
+on restart; test events close after one hour. No real recipient roles are resolved.
+The launcher is available before full clan setup and is posted by /clan-setup.
