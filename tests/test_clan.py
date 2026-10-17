@@ -344,6 +344,8 @@ class DiscordTests(StoreFixture, unittest.IsolatedAsyncioTestCase):
 
     async def test_commands_register_and_serialize_without_network(self):
         expected = {
+            "join-buddys",
+            "members",
             "test-bot",
             "clan-setup",
             "management",
@@ -429,7 +431,7 @@ class DiscordTests(StoreFixture, unittest.IsolatedAsyncioTestCase):
                     display_name=str(uid),
                 )
 
-        guild = SimpleNamespace(fetch_members=members)
+        guild = SimpleNamespace(id=100, fetch_members=members)
         self.assertEqual(set(await self.client.resolve_targets(guild, schedule["id"])), {10, 11})
 
     async def test_repeated_dispatch_does_not_resend(self):

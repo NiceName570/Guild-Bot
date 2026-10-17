@@ -67,6 +67,20 @@ preview; Save schedule enables automatic delivery. `/schedules` shows state.
 
 ## Discord commands
 
+New human members of the configured server receive one private welcome asking
+whether they belong to **Buddys**. Yes opens an in-game-name form; submitting it
+automatically adds them to future recurring event invitations, alongside saved
+role/player selections. It does not RSVP Going, assign Discord roles, rename
+members, or grant management access. No declines automatic enrollment. Leaving the
+server deactivates registration; rejoining requires confirmation again. Existing
+members are not mass-DMed. Joins missed during downtime after activation are caught
+up once. Welcome buttons survive restarts. Membership is self-reported.
+
+Use `/join-buddys` to sign up or change your in-game name if DMs are blocked.
+Managers can use `/members` for the private registration list and welcome DM failures.
+The test panel's **Test new-member signup** button exercises the flow privately
+without enrolling the tester in the real roster.
+
 **Try it privately:** use `/test-bot` or the **Test bot** button. The test panel
 can DM an RSVP invitation or announcement only to you, show your test list,
 exercise corrections/cancellation, and preview the calendar. Test events/stats
@@ -77,6 +91,8 @@ button is also posted in the management channel when `/clan-setup` runs.
 | Command | Access / purpose |
 | --- | --- |
 | `/test-bot` | Six managers: private testing panel; only the tester receives test messages |
+| `/join-buddys` | Members: confirm clan membership and save/update in-game name |
+| `/members` | Six managers: private membership registrations and welcome delivery status |
 | `/clan-setup` | Owner only: create/repair private management channel |
 | `/management` | Owner only: assign leader + four officers |
 | `/recipients` | Six managers: select roles/players to add or remove per schedule |

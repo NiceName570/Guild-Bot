@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import re
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -140,8 +141,25 @@ class Store:
                     batch TEXT NOT NULL, user_id INTEGER NOT NULL, state TEXT NOT NULL,
                     PRIMARY KEY(batch,user_id)
                 );
+                CREATE TABLE IF NOT EXISTS clan_members (
+                    guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL, game_name TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1, updated_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id,user_id)
+                );
+                CREATE TABLE IF NOT EXISTS clan_onboarding (
+                    guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL, join_key TEXT NOT NULL,
+                    nonce TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'awaiting',
+                    delivery TEXT NOT NULL DEFAULT 'pending', message_id INTEGER, error TEXT,
+                    updated_at INTEGER NOT NULL, PRIMARY KEY(guild_id,user_id)
+                );
+                CREATE TABLE IF NOT EXISTS clan_features (
+                    guild_id INTEGER PRIMARY KEY, onboarding_since INTEGER NOT NULL
+                );
             """)
             # An in-flight external send cannot safely be retried after an abrupt crash.
+            conn.execute(
+                "UPDATE clan_onboarding SET delivery='uncertain',error='Restart during welcome delivery' WHERE delivery='sending'"
+            )
             conn.execute(
                 "UPDATE clan_recipients SET delivery='uncertain', delivery_error="
                 "'Restart during send; delivery needs review' WHERE delivery='sending'"
@@ -175,6 +193,103 @@ class Store:
 
     def settings(self, guild_id):
         return self.one("SELECT * FROM clan_settings WHERE guild_id=?", (guild_id,))
+
+    def onboarding_since(self, guild_id):
+        with self.db() as conn:
+            conn.execute("INSERT OR IGNORE INTO clan_features VALUES(?,?)", (guild_id, now_ts()))
+            return conn.execute(
+                "SELECT onboarding_since FROM clan_features WHERE guild_id=?", (guild_id,)
+            ).fetchone()[0]
+
+    def welcome(self, guild_id, user_id):
+        return self.one(
+            "SELECT * FROM clan_onboarding WHERE guild_id=? AND user_id=?", (guild_id, user_id)
+        )
+
+    def prepare_welcome(self, guild_id, user_id, join_key):
+        with self.db() as conn:
+            old = conn.execute(
+                "SELECT * FROM clan_onboarding WHERE guild_id=? AND user_id=?", (guild_id, user_id)
+            ).fetchone()
+            if old and old["join_key"] == join_key:
+                return False
+            conn.execute(
+                "INSERT INTO clan_onboarding(guild_id,user_id,join_key,nonce,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(guild_id,user_id) DO UPDATE SET join_key=excluded.join_key,nonce=excluded.nonce,"
+                "state='awaiting',delivery='pending',message_id=NULL,error=NULL,updated_at=excluded.updated_at",
+                (guild_id, user_id, join_key, uuid.uuid4().hex[:12], now_ts()),
+            )
+            conn.execute(
+                "UPDATE clan_members SET active=0 WHERE guild_id=? AND user_id=?",
+                (guild_id, user_id),
+            )
+            return True
+
+    def welcome_delivery(self, guild_id, user_id, nonce, state, message_id=None, error=None):
+        with self.db() as conn:
+            conn.execute(
+                "UPDATE clan_onboarding SET delivery=?,message_id=?,error=? WHERE guild_id=? AND user_id=? AND nonce=?",
+                (state, message_id, error, guild_id, user_id, nonce),
+            )
+
+    def register_member(self, guild_id, user_id, nonce, game_name):
+        name = game_name.strip()
+        if (
+            not 1 <= len(name) <= 32
+            or any(ord(c) < 32 for c in name)
+            or any(c in name for c in "@<>")
+        ):
+            raise ValueError(
+                "Enter an in-game name of 1–32 characters, without line breaks or mentions."
+            )
+        with self.db() as conn:
+            row = conn.execute(
+                "SELECT nonce,state FROM clan_onboarding WHERE guild_id=? AND user_id=?",
+                (guild_id, user_id),
+            ).fetchone()
+            if not row or row["nonce"] != nonce or row["state"] == "left":
+                raise ValueError("This welcome form is outdated. Use /join-buddys in the server.")
+            conn.execute(
+                "INSERT INTO clan_members VALUES(?,?,?,1,?) ON CONFLICT(guild_id,user_id) DO UPDATE SET "
+                "game_name=excluded.game_name,active=1,updated_at=excluded.updated_at",
+                (guild_id, user_id, name, now_ts()),
+            )
+            conn.execute(
+                "UPDATE clan_onboarding SET state='registered',updated_at=? WHERE guild_id=? AND user_id=?",
+                (now_ts(), guild_id, user_id),
+            )
+
+    def decline_membership(self, guild_id, user_id, nonce):
+        with self.db() as conn:
+            result = conn.execute(
+                "UPDATE clan_onboarding SET state='not_member',updated_at=? WHERE guild_id=? AND user_id=? AND nonce=?",
+                (now_ts(), guild_id, user_id, nonce),
+            )
+            if not result.rowcount:
+                raise ValueError(
+                    "This welcome message is outdated. Use /join-buddys in the server."
+                )
+            conn.execute(
+                "UPDATE clan_members SET active=0,updated_at=? WHERE guild_id=? AND user_id=?",
+                (now_ts(), guild_id, user_id),
+            )
+
+    def member_left(self, guild_id, user_id):
+        with self.db() as conn:
+            conn.execute(
+                "UPDATE clan_members SET active=0,updated_at=? WHERE guild_id=? AND user_id=?",
+                (now_ts(), guild_id, user_id),
+            )
+            conn.execute(
+                "UPDATE clan_onboarding SET state='left',updated_at=? WHERE guild_id=? AND user_id=?",
+                (now_ts(), guild_id, user_id),
+            )
+
+    def registered_members(self, guild_id):
+        return self.rows(
+            "SELECT * FROM clan_members WHERE guild_id=? AND active=1 ORDER BY game_name",
+            (guild_id,),
+        )
 
     def configure(self, guild_id, channel_id, timestamp):
         with self.db() as conn:
@@ -256,8 +371,15 @@ class Store:
             raise ValueError(
                 "Use a title of 1–100 characters and message text up to 1,500 characters."
             )
-        if enabled and not self.targets(schedule_id):
-            raise ValueError("Select at least one role or player before enabling this schedule.")
+        schedule_guild = self.one("SELECT guild_id FROM clan_schedules WHERE id=?", (schedule_id,))
+        if (
+            enabled
+            and not self.targets(schedule_id)
+            and not self.registered_members(schedule_guild["guild_id"])
+        ):
+            raise ValueError(
+                "Select recipients or register at least one Buddys member before enabling this schedule."
+            )
         with self.db() as conn:
             conn.execute(
                 "UPDATE clan_schedules SET title=?,body=?,enabled=? WHERE id=?",

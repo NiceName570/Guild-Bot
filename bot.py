@@ -211,8 +211,14 @@ class ScheduleModal(discord.ui.Modal):
 
     async def on_submit(self, interaction):
         self.client.require_manager(interaction)
-        if self.enabled and not self.client.store.targets(self.schedule["id"]):
-            raise ValueError("Select at least one role or player with /recipients first.")
+        if (
+            self.enabled
+            and not self.client.store.targets(self.schedule["id"])
+            and not self.client.store.registered_members(self.schedule["guild_id"])
+        ):
+            raise ValueError(
+                "Select recipients or register at least one Buddys member before enabling this schedule."
+            )
         draft = {"body": self.body_input.value}
         title = self.name_input.value
         draft["render"] = lambda: (
@@ -347,11 +353,153 @@ class DraftModal(discord.ui.Modal):
         )
 
 
+WELCOME_TEXT = (
+    "**Welcome! Are you a member of Buddys?**\n"
+    "If yes, confirm your in-game name to join the clan's event invitation list. "
+    "You'll still choose Going or Not going for each event."
+)
+
+
+class MemberNameModal(discord.ui.Modal):
+    def __init__(self, client, user_id, nonce):
+        super().__init__(title="Your Buddys in-game name", timeout=600)
+        self.client, self.user_id, self.nonce = client, user_id, nonce
+        saved = client.store.one(
+            "SELECT game_name FROM clan_members WHERE guild_id=? AND user_id=?",
+            (client.guild_id, user_id),
+        )
+        self.name_input = discord.ui.TextInput(
+            label="In-game name",
+            min_length=1,
+            max_length=32,
+            default=saved["game_name"] if saved else None,
+        )
+        self.add_item(self.name_input)
+
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.user_id or interaction.guild_id not in (
+            None,
+            self.client.guild_id,
+        ):
+            raise PermissionError("This signup belongs to a different player.")
+        await interaction.response.defer(ephemeral=True)
+        guild = self.client.get_guild(self.client.guild_id)
+        if guild is None:
+            raise ValueError(
+                "The clan server is unavailable. Try /join-buddys in the server later."
+            )
+        try:
+            member = await guild.fetch_member(self.user_id)
+        except discord.NotFound as exc:
+            raise ValueError(
+                "You must still be a member of the clan's Discord server to sign up."
+            ) from exc
+        if member.bot:
+            raise ValueError("Only human clan members can sign up.")
+        self.client.store.register_member(
+            self.client.guild_id, self.user_id, self.nonce, self.name_input.value
+        )
+        test = isinstance(self.client, TestSession)
+        await private_reply(
+            interaction,
+            "**Test signup saved.** Your real clan registration is unchanged."
+            if test
+            else "**You're signed up for Buddys event invitations!** Your in-game name is saved. "
+            "You'll receive future event DMs and choose Going or Not going for each one.",
+        )
+
+    async def on_error(self, interaction, error):
+        LOG.warning("Member signup failed: %s", type(error).__name__)
+        await private_reply(
+            interaction,
+            str(error)
+            if isinstance(error, (ValueError, PermissionError))
+            else "Could not save your signup. Try /join-buddys in the clan server.",
+        )
+
+
+class OnboardingView(SafeView):
+    def __init__(self, client, user_id, nonce):
+        super().__init__(timeout=None)
+        self.client, self.user_id, self.nonce = client, user_id, nonce
+        prefix = getattr(client, "component_namespace", "clan")
+        for label, choice, style in (
+            ("Yes, I'm in Buddys", "yes", discord.ButtonStyle.success),
+            ("No, I'm not", "no", discord.ButtonStyle.secondary),
+        ):
+            button = discord.ui.Button(
+                label=label,
+                style=style,
+                custom_id=f"join:{prefix}:{client.guild_id}:{user_id}:{nonce}:{choice}",
+            )
+            button.callback = self.yes if choice == "yes" else self.no
+            self.add_item(button)
+
+    def validate(self, interaction):
+        if interaction.user.id != self.user_id or interaction.guild_id not in (
+            None,
+            self.client.guild_id,
+        ):
+            raise PermissionError("Only the person welcomed can answer this signup.")
+        row = self.client.store.welcome(self.client.guild_id, self.user_id)
+        if not row or row["nonce"] != self.nonce or row["state"] == "left":
+            raise ValueError("This welcome message is outdated. Use /join-buddys in the server.")
+
+    async def yes(self, interaction):
+        self.validate(interaction)
+        await interaction.response.send_modal(
+            MemberNameModal(self.client, self.user_id, self.nonce)
+        )
+
+    async def no(self, interaction):
+        self.validate(interaction)
+        self.client.store.decline_membership(self.client.guild_id, self.user_id, self.nonce)
+        await private_reply(
+            interaction,
+            "Saved. You won't be automatically added to Buddys event invitations. "
+            "If that changes, use /join-buddys in the server.",
+        )
+
+
+async def send_welcome(client, member, join_key=None):
+    if member.bot:
+        return
+    if join_key is None:
+        joined = getattr(member, "joined_at", None)
+        join_key = str(int(joined.timestamp())) if joined else str(now_ts())
+    if not client.store.prepare_welcome(client.guild_id, member.id, join_key):
+        return
+    row = client.store.welcome(client.guild_id, member.id)
+    client.store.welcome_delivery(client.guild_id, member.id, row["nonce"], "sending")
+    try:
+        user = await client.fetch_user(member.id)
+        message = await user.send(
+            ("**[TEST — only you]**\n" if isinstance(client, TestSession) else "") + WELCOME_TEXT,
+            view=OnboardingView(client, member.id, row["nonce"]),
+        )
+    except (discord.Forbidden, discord.NotFound):
+        client.store.welcome_delivery(
+            client.guild_id, member.id, row["nonce"], "failed", error="DM unavailable"
+        )
+    except Exception as exc:
+        client.store.welcome_delivery(
+            client.guild_id,
+            member.id,
+            row["nonce"],
+            "uncertain",
+            error=f"Delivery needs review ({type(exc).__name__})",
+        )
+    else:
+        client.store.welcome_delivery(client.guild_id, member.id, row["nonce"], "sent", message.id)
+
+
 class TestSession:
     """One tester's separate database; never resolves or messages real recipient roles."""
 
     def __init__(self, client, user_id):
         self.client, self.user_id = client, user_id
+        self.guild_id = client.guild_id
+        self.get_guild = client.get_guild
         self.component_namespace = f"test{user_id}"
         self.require_manager = client.require_manager
         self.fetch_user = client.fetch_user
@@ -408,7 +556,7 @@ class TestPanel(SafeView):
     DESCRIPTION = (
         "**Private bot test panel**\n"
         "Test event DMs, Going/Not going, the four-stat form, saved-stat prefill, "
-        "announcements, corrections, cancellation, and the response list.\n"
+        "announcements, corrections, cancellation, onboarding, and the response list.\n"
         "Only **you** receive test messages. Test responses and stats are stored separately "
         "from the clan's real events. Test events close after one hour.\n"
         "Use Test list after replying to see the updated result."
@@ -511,6 +659,18 @@ class TestPanel(SafeView):
         lines.append("Eastern schedule with daylight saving changes. No automatic reminders.")
         await private_reply(interaction, "\n\n".join(lines))
 
+    @discord.ui.button(label="Test new-member signup", style=discord.ButtonStyle.primary, row=1)
+    async def onboarding(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        user = await self.client.fetch_user(self.user_id)
+        await send_welcome(self.session, user, join_key=f"test-{uuid.uuid4().hex}")
+        row = self.session.store.welcome(self.client.guild_id, self.user_id)
+        await private_reply(
+            interaction,
+            f"Test welcome DM: **{row['delivery']}**. "
+            "Try Yes and your in-game name, or No. Your real registration stays unchanged.",
+        )
+
 
 class TestCorrectionModal(StatsModal):
     async def on_submit(self, interaction):
@@ -568,13 +728,16 @@ class ClanBot(discord.Client):
         users = [f"<@{t['target_id']}>" for t in targets if t["kind"] == "user"]
         text = (
             f"**{schedule['key']} recipients**\nRoles: {', '.join(roles) or 'None'}\n"
-            f"Players: {', '.join(users) or 'None'}\nSelections are saved. Enable via /schedule."
+            f"Players: {', '.join(users) or 'None'}\n"
+            f"Registered Buddys members: {len(self.store.registered_members(schedule['guild_id']))} (included automatically)\n"
+            "Selections are saved. Enable via /schedule."
         )
         if len(text) > 1900:
             return f"Saved {len(roles)} roles and {len(users)} players. Use /recipient-preview for the full list."
         return text
 
     async def setup_hook(self):
+        self.store.onboarding_since(self.guild_id)
         self.add_view(TestLauncher(self))
         directory = Path(self.store.path).parent / "test-data"
         if directory.exists():
@@ -583,6 +746,13 @@ class ClanBot(discord.Client):
                 if not user_text.isdecimal():
                     continue
                 session = self.test_session(int(user_text))
+                for welcome in session.store.rows(
+                    "SELECT * FROM clan_onboarding WHERE state!='left'"
+                ):
+                    self.add_view(
+                        OnboardingView(session, welcome["user_id"], welcome["nonce"]),
+                        message_id=welcome["message_id"],
+                    )
                 for row in session.store.rows(
                     "SELECT r.* FROM clan_recipients r JOIN clan_events e ON "
                     "e.id=r.event_id WHERE e.starts_at>? AND e.state!='cancelled'",
@@ -602,12 +772,41 @@ class ClanBot(discord.Client):
                 message_id=row["message_id"],
             )
         guild = discord.Object(id=self.guild_id)
+        for welcome in self.store.rows(
+            "SELECT * FROM clan_onboarding WHERE guild_id=? AND state!='left'", (self.guild_id,)
+        ):
+            self.add_view(
+                OnboardingView(self, welcome["user_id"], welcome["nonce"]),
+                message_id=welcome["message_id"],
+            )
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
         self.scheduler.start()
 
     async def on_ready(self):
         LOG.info("Connected as bot %s; configured server %s", self.user.id, self.guild_id)
+        # Catch joins missed during downtime without DMing the existing server population.
+        guild = self.get_guild(self.guild_id)
+        if guild is not None:
+            since = self.store.onboarding_since(self.guild_id)
+            try:
+                async for member in guild.fetch_members(limit=None):
+                    if (
+                        not member.bot
+                        and member.joined_at
+                        and int(member.joined_at.timestamp()) >= since
+                    ):
+                        await send_welcome(self, member)
+            except Exception as exc:
+                LOG.warning("New-member catch-up paused: %s", type(exc).__name__)
+
+    async def on_member_join(self, member):
+        if member.guild.id == self.guild_id and not member.bot:
+            await send_welcome(self, member)
+
+    async def on_member_remove(self, member):
+        if member.guild.id == self.guild_id:
+            self.store.member_left(self.guild_id, member.id)
 
     async def close(self):
         self.scheduler.cancel()
@@ -632,13 +831,21 @@ class ClanBot(discord.Client):
         targets = self.store.targets(schedule_id)
         role_ids = {t["target_id"] for t in targets if t["kind"] == "role"}
         user_ids = {t["target_id"] for t in targets if t["kind"] == "user"}
+        registrations = {
+            row["user_id"]: row["game_name"] for row in self.store.registered_members(guild.id)
+        }
+        user_ids.update(registrations)
         people = {}
         # REST enumeration avoids an incomplete member cache at send time.
         async for member in guild.fetch_members(limit=None):
             if not member.bot and (
                 member.id in user_ids or role_ids.intersection(r.id for r in member.roles)
             ):
-                people[member.id] = member.display_name
+                people[member.id] = (
+                    f"{registrations[member.id]} ({member.display_name})"
+                    if member.id in registrations
+                    else member.display_name
+                )
         return people
 
     async def refresh_report(self, event):
@@ -862,6 +1069,42 @@ class ClanBot(discord.Client):
         await self.close()
 
     def register_commands(self):
+        @self.tree.command(
+            name="join-buddys",
+            description="Confirm Buddys membership and save or update your in-game name",
+        )
+        @app_commands.guild_only()
+        async def join_buddys(interaction: discord.Interaction):
+            if interaction.guild_id != self.guild_id or interaction.user.bot:
+                raise PermissionError("Use this in the Buddys clan server.")
+            joined = getattr(interaction.user, "joined_at", None)
+            key = str(int(joined.timestamp())) if joined else str(now_ts())
+            self.store.prepare_welcome(self.guild_id, interaction.user.id, key)
+            row = self.store.welcome(self.guild_id, interaction.user.id)
+            await private_reply(
+                interaction,
+                WELCOME_TEXT,
+                view=OnboardingView(self, interaction.user.id, row["nonce"]),
+            )
+
+        @self.tree.command(
+            name="members", description="Managers: see Buddys registrations and failed welcome DMs"
+        )
+        @app_commands.guild_only()
+        async def members(interaction: discord.Interaction):
+            self.require_manager(interaction)
+            rows = self.store.rows(
+                "SELECT o.user_id,o.state,o.delivery,o.error,m.game_name,m.active FROM clan_onboarding o "
+                "LEFT JOIN clan_members m ON m.guild_id=o.guild_id AND m.user_id=o.user_id WHERE o.guild_id=? ORDER BY o.updated_at DESC",
+                (self.guild_id,),
+            )
+            data = json.dumps(rows, indent=2, ensure_ascii=False).encode()
+            await private_reply(
+                interaction,
+                "Private clan signup list (membership is self-reported):",
+                file=discord.File(io.BytesIO(data), filename="buddys-members.json"),
+            )
+
         @self.tree.command(
             name="test-bot", description="Managers: open your private bot test buttons"
         )

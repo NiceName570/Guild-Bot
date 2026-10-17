@@ -106,3 +106,18 @@ panel. Test databases and component IDs are separate from production, so test
 stats and event IDs cannot alter or collide with real events. Test buttons restore
 on restart; test events close after one hour. No real recipient roles are resolved.
 The launcher is available before full clan setup and is posted by /clan-setup.
+
+## Follow-up: automatic new-member signup
+
+Owner requested a welcome on server join asking Buddys membership and in-game name,
+with automatic signup. Implemented one DM per human join in the configured guild,
+Yes -> name modal -> active self-reported registration, No -> no automatic enrollment.
+Confirmed registrations join future recurring invitation recipient lists alongside
+explicit roles/users, deduplicated, with in-game and Discord names. Never auto-RSVP
+Going or grant manager powers/Discord roles. Departure deactivates; rejoin invalidates
+old forms and requires reconfirmation. Existing members are not mass-messaged.
+On reconnect, joins since persisted feature activation are caught up idempotently.
+Failed/uncertain welcomes are not blindly resent; /join-buddys is the private fallback
+and /members is the manager-only signup/delivery list. Persistent welcome buttons,
+current-server membership check before form submission, strict per-user controls,
+and isolated Test new-member signup button added. Schema changes are additive.
