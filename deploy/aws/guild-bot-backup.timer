@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily clan manager database backup
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

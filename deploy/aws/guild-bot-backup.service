@@ -1,0 +1,9 @@
+[Unit]
+Description=Private online backup of clan manager database
+
+[Service]
+Type=oneshot
+User=clanbot
+Group=clanbot
+UMask=0077
+ExecStart=/opt/guild-bot/venv/bin/python /opt/guild-bot/backup.py

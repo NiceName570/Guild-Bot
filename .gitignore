@@ -10,3 +10,6 @@ __pycache__/
 backups-local/
 .venv/
 venv/
+*.lock
+backups/
+.pytest_cache/

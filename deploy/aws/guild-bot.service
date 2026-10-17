@@ -1,0 +1,31 @@
+[Unit]
+Description=Clan manager Discord bot
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=clanbot
+Group=clanbot
+WorkingDirectory=/opt/guild-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=AWS_REGION=us-east-2
+Environment=CLAN_DB_PATH=/opt/guild-bot/guild.db
+ExecStart=/opt/guild-bot/venv/bin/python /opt/guild-bot/bot.py
+Restart=always
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/guild-bot
+RestrictSUIDSGID=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
