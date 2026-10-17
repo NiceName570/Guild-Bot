@@ -1,8 +1,11 @@
 # AWS deployment preparation — us-east-2 only
 
-**Status: local implementation tested; no AWS resources provisioned and no live
-Discord session started.** Missing deployment inputs: AWS CLI/login, Discord bot
-token, the builder's Discord user ID, and the target clan server ID. Do not paste
+**Status: local implementation tested; bot connected locally to Discord with 14
+guild slash commands on October 17, 2026; no AWS resources provisioned.** Discord
+credentials and IDs are now configured privately. Manager-channel setup needs
+Manage Channels permission. AWS CLI/login remain pending: automatic approval review
+blocked the attempted official per-user CLI installer command as "blocked by policy"
+without a more specific reason. No installer was run. Do not paste
 tokens or AWS credentials into chat or commit them to Git.
 
 ## Free-plan evidence checked October 17, 2026

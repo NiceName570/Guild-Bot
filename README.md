@@ -3,8 +3,10 @@
 Automatic private event invitations and RSVP stats for a Diablo Immortal clan.
 Built on the existing Python/discord.py bot on branch `clan-manager-aws`.
 
-**Status:** implemented and tested locally with mocked Discord calls. Not connected
-to Discord or deployed to AWS yet. The original Oracle bot was not changed or
+**Status:** implemented and tested locally; connected to the target Discord server
+on October 17, 2026, with 14 guild slash commands registered. Manager-channel
+setup is pending Manage Channels permission and manager/recipient assignments;
+automatic invitations are not configured. Not deployed to AWS yet. The original Oracle bot was not changed or
 contacted. Its historical notes are preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
 
 ## Weekly schedule

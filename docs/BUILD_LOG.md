@@ -73,3 +73,25 @@ Windows user before writing secrets, then atomically replaces ignored .env. No b
 startup or network activity. Three dedicated configuration tests passed, covering
 validation, private file save and preservation, and failure without overwrite.
 Application metadata is recorded without changing the gateway login mechanism.
+
+## Follow-up: local Discord connection
+
+Owner requested startup after private configuration was completed. First startup
+authenticated but Discord rejected the gateway due to Server Members Intent being
+disabled. Opened the app's Bot page in the signed-in developer portal, enabled only
+Server Members Intent, and saved; Discord confirmed "Bot successfully updated!".
+Restarted locally; gateway connection succeeded. Read-only Discord REST verification
+confirmed the bot is in the configured target guild, 14 guild commands are present,
+and the configured owner is a member. Token was neither printed nor committed.
+
+Bot lacks Manage Channels; Send Messages, Attach Files, and Read Message History
+were present. Asked before granting Manage Channels, which can edit/delete server
+channels in addition to creating the private manager channel. No management channel
+or recurring schedules configured yet, and no invitations or announcements sent.
+The running local Python process is temporary local hosting, not AWS deployment.
+
+Attempted to download, signature-verify, and run AWS's official per-user CLI MSI.
+Automatic approval review rejected the command before execution with "blocked by
+policy"; it supplied no additional reason. Installer not run; did not retry via
+another execution path. AWS CLI/authentication and real Free-plan verification
+remain pending. No AWS resources created and no AWS login invocation attempted.
