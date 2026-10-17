@@ -38,7 +38,13 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Fill in `.env` privately: DISCORD_TOKEN, BOT_OWNER_ID (the builder's Discord user
+For a local setup window with a masked token field, run
+`./.venv/Scripts/pythonw.exe configure_discord.py`. It asks for your Discord user
+ID, application ID, public key, token, and optional clan server ID. Save privately
+writes a user-restricted `.env` without starting the bot or making network calls.
+Existing setting values are preserved; the file is rewritten in normalized form.
+
+Or fill in `.env` privately: DISCORD_TOKEN, BOT_OWNER_ID (the builder's Discord user
 ID), CLAN_GUILD_ID (the target clan's server ID), AWS_REGION=us-east-2. Enable the
 Server Members Intent in the Discord Developer Portal. The bot needs Manage
 Channels, View Channels, Send Messages, Read Message History, Attach Files, and

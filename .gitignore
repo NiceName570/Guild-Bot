@@ -13,3 +13,4 @@ venv/
 *.lock
 backups/
 .pytest_cache/
+.discord-config-*.env

@@ -62,3 +62,14 @@ see docs/AWS.md for exact source links and the required live preflight. AWS Free
 stops at plan expiry/credit exhaustion. No paid continuation or automated upgrade;
 the preflight is not an ongoing universal billing cap if someone independently
 changes the AWS plan.
+
+## Follow-up: actual local setup window
+
+The owner clarified they wanted an actual configuration prompt, not a text prompt.
+Added configure_discord.py: local Tkinter window for owner user ID, application ID,
+public key, masked token, and optional server ID. Saving validates formats,
+preserves other setting values, restricts the empty temporary file to the current
+Windows user before writing secrets, then atomically replaces ignored .env. No bot
+startup or network activity. Three dedicated configuration tests passed, covering
+validation, private file save and preservation, and failure without overwrite.
+Application metadata is recorded without changing the gateway login mechanism.
