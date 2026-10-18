@@ -15,3 +15,9 @@ backups/
 .pytest_cache/
 .discord-config-*.env
 test-data/
+
+# Operational notes stay local.
+/HANDOFF.md
+/handoff.md
+/SUMMARY_LOG.md
+/docs/BUILD_LOG.md

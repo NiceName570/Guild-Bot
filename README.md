@@ -1,175 +1,157 @@
-# Buddys Discord clan manager
+![Buddys Clan Manager](docs/assets/clan-manager-banner.svg)
 
-Automatic private event invitations and RSVP stats for a Diablo Immortal clan.
-Built on the existing Python/discord.py bot on branch `clan-manager-aws`.
+# Buddys Clan Manager
 
-**Status checked October 17, 2026 (Eastern):** `buddysclanmanager` runs only on
-AWS EC2 in **us-east-2**, with automatic startup and crash restart. This Windows PC
-is not hosting it. All 17 guild slash commands are registered. Server Members
-Intent and Manage Channels are enabled; the private management channel exists.
-The leader/four officers still need assigning and all three weekly schedules
-remain **paused**. Daily private database backups upload to S3.
+A Discord bot for Diablo Immortal clans: scheduled player DMs, Going / Not going
+RSVPs, optional combat stats, automatic signup, and private manager reports.
+Everything players and managers do happens inside Discord.
 
-The current build passed **97 automated tests**. These include mocked Discord
-interactions; a real event RSVP, new-member signup, and scheduled send still need
-user verification in Discord. The original Oracle bot was not contacted or changed.
-Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
+[Invite to a server](https://discord.com/oauth2/authorize?client_id=1561079116378406982&integration_type=0&scope=bot%20applications.commands&permissions=101392)
+· [Setup guide](SETUP_README.md)
+· [Hosting: AWS / Oracle / local](docs/HOSTING.md)
+· [AWS operations](docs/AWS.md)
 
-For another developer or a fresh chat, start with **[HANDOFF.md](HANDOFF.md)**.
+## All 17 slash commands
 
-For step-by-step Discord setup and instructions to run the bot, use
-**[SETUP_README.md](SETUP_README.md)**.
+**Owner** = the Discord user configured as `BOT_OWNER_ID`.
+**Managers** = that owner plus the leader/officers they assign in each server.
+Vacant positions are allowed; knowing the application ID grants no management access.
 
-## Weekly schedule
-
-| Send invitation | Event | Event starts |
+| Command | Access | What it does |
 | --- | --- | --- |
-| Wednesday 5 PM | Shadow War | Thursday 8 PM |
-| Friday 5 PM | Shadow War | Saturday 8 PM |
-| Saturday 5 PM | Rite of Exile / Vigil of Blades | Sunday 8 PM |
+| `/clan-setup` | Owner | Create or repair the private manager channel and post the test launcher. |
+| `/management` | Owner | Assign any available leader/officer positions. Blanks keep saved choices; `clear` removes a slot. |
+| `/recipients` | Managers | Add or remove roles and individual players for a weekly schedule. |
+| `/recipient-preview` | Managers | Privately review everyone who would receive a schedule's invitations. |
+| `/schedule` | Managers | Edit invitation wording, preview it, then enable or pause a weekly schedule. |
+| `/schedules` | Managers | View the weekly calendar, enabled/paused state, and saved target selections. |
+| `/events` | Managers | List event dates, status, and event IDs. |
+| `/report` | Managers | Refresh the full private RSVP list, stats, and DM delivery outcomes for an event. |
+| `/correct` | Managers | Correct a player's RSVP or stats before event start; the change is audited. |
+| `/cancel-event` | Managers | Confirm cancellation and notify delivered invitation recipients once. |
+| `/announce` | Managers | Choose a recipient schedule, edit/preview a plain DM message, then send it now. |
+| `/extra-event` | Managers | Preview and schedule an additional event with Going / Not going buttons. |
+| `/audit` | Managers | View an event's response and correction history. |
+| `/members` | Managers | View registrations, saved names, and welcome-message delivery failures. |
+| `/test-bot` | Managers | Open private tests. Only the person testing receives test messages. |
+| `/join-buddys` | Players | Confirm clan membership or update a saved in-game name. |
+| `/rsvp` | Players | Privately list their own open invitations or answer one by event ID. |
 
-America/New_York throughout, following daylight saving time. No automatic reminders.
-Schedules begin paused and send automatically once managers configure and enable
-them. Registered Buddys members, selected roles, and individually selected players
-are combined and deduplicated. Registration does not enable a paused schedule.
+**Send a message:** `/announce` → choose the recipient schedule → write the message
+→ review the preview → confirm Send. Use `/extra-event` for RSVP buttons.
+Use `/test-bot` to try the flow without contacting the clan.
 
-Going opens a form for armor, armor penetration, potency, and resistance, prefilled
-with the player's latest values. Every stat is optional: submit Going with any or
-all stats blank. Missing values show as — rather than zero; supplied values must
-be valid nonnegative whole numbers. Not going needs no form. Responses close at event start.
+## What you need to run it
 
-The owner, leader, and four officers see a private, automatically updated list of
-every recipient, RSVP, stats, and DM delivery outcome. Only the configured bot
-owner can assign those six positions. Discord server owners/Administrators can
-bypass channel permissions; the bot cannot prevent that platform behavior.
+Choose **one always-on host**. Production currently runs on AWS, independently of
+the developer's PC. Oracle and local hosting are alternatives to that deployment.
 
-## Hosting and setup
+| Host | Required | How it stays online |
+| --- | --- | --- |
+| **AWS** | An AWS project with EC2 access, a Linux VM, persistent disk, outbound HTTPS, and private Discord configuration. S3 and an instance role are needed for the supplied cloud backup service. | The current Ubuntu host uses systemd for startup and crash restart. Compute, disk, IPv4 and storage consume credits or incur charges under the selected plan. |
+| **Oracle Cloud** | An Oracle Cloud account, a provisioned Linux VM, persistent disk, outbound HTTPS, Python, and private Discord configuration. | Use systemd on the VM. Historical Oracle files are included; the current build has not been redeployed there. |
+| **Always-on local machine** | Python 3.11+ (3.12 tested), persistent storage, Internet access, and a computer that stays powered on and awake. | Keep the Python process running or configure a service/startup manager. Sleep, shutdown or lost Internet interrupts the bot. |
 
-### Invite to another server
+All options need a **Discord application/bot token**, your Discord user ID, a default
+server ID, a **Guild Install**, and **Server Members Intent** enabled. No web dashboard,
+public listening port, AI key, or separate database server is needed. The bot uses
+SQLite. See [hosting instructions](docs/HOSTING.md) for configuration and commands.
 
-[Add Buddys clan manager to a server](https://discord.com/oauth2/authorize?client_id=1561079116378406982&integration_type=0&scope=bot%20applications.commands&permissions=101392).
-Anyone with permission to install bots in their server can use this link. The
-application ID is public metadata, not a password or a manager-access credential.
+Never run the same production token on two hosts at once. The process lock protects
+one database on one host; it is not a cross-host lock.
+**Pushing GitHub does not automatically update the running AWS bot.**
 
-The same AWS bot supports multiple servers on one Gateway connection. Each server
-has separate manager assignments, schedules, recipients, registrations and reports.
-The configured bot owner must join each server and run `/clan-setup`; only that
-owner can assign its leader/four officers. Knowing the app ID grants no management
-access. New servers begin with paused schedules and no automatic welcome DMs until
-setup. A server administrator enables Manage Permissions for the bot only in the
-new private channel before manager assignment. Removal pauses that server's schedules.
-`CLAN_GUILD_ID` is the legacy/default server for old DM test launchers, not an allowlist.
+## Discord setup
 
-The production host is EC2 `i-05620ede0ebe795df` in us-east-2. No PC needs to stay
-on. Use [SETUP_README.md](SETUP_README.md) to assign managers, select recipients,
-test privately, and enable schedules from Discord. Use [docs/AWS.md](docs/AWS.md)
-for service status, restarts, backups, and maintenance. Do not start a local copy
-with the production token.
+1. Use **Guild Install / Add to Server** with `bot` and `applications.commands`.
+2. Give the bot **View Channels, Send Messages, Read Message History, Attach Files,
+   and Manage Channels**. Administrator is not required.
+3. The configured bot owner joins the server and runs `/clan-setup`.
+4. A server owner/administrator opens **#clan-management → Edit Channel → Permissions
+   → Advanced permissions → buddysclanmanager**, allows **Manage Permissions**, and saves.
+   This setting is inside the actual server, not the Developer Portal calculator.
+   Owning the bot does not give your user permission to edit another person's server.
+5. Run `/management` and fill whichever positions are available.
+6. Players use `/join-buddys`, or managers select roles/users using `/recipients`.
+   Review `/recipient-preview`, test privately, then enable each `/schedule` when ready.
 
-## Discord commands
+Each server has independent managers, registrations, recipients, schedules and reports.
+Only the configured owner assigns managers. New servers start with paused schedules;
+automatic welcome DMs begin after setup. `CLAN_GUILD_ID` is the legacy/default server,
+not an installation allowlist.
 
-### New-member signup
+## Features
 
-New human members of a server that completed setup receive one private welcome asking
-whether they belong to **Buddys**. Yes opens an in-game-name form; submitting it
-automatically adds them to future recurring event invitations, alongside saved
-role/player selections. It does not RSVP Going, assign Discord roles, rename
-members, or grant management access. No declines automatic enrollment. Leaving the
-server deactivates registration; rejoining requires confirmation again. Existing
-members are not mass-DMed. Joins missed during downtime after activation are caught
-up once. Welcome buttons survive restarts. Membership is self-reported.
+- **Automatic weekly invitations** with generated dates and editable messages.
+- **Private RSVP DMs:** Going opens a stat form; Not going needs no stats.
+- **Optional fields:** vacant manager slots and partial/all-blank stats save successfully.
+  Blank text edits keep saved wording; blank signup names use the Discord display name.
+- **Four stats:** armor, armor penetration, potency and resistance. Known values prefill
+  future forms. Blanks show as **—**, never zero. Entered values must be nonnegative
+  whole numbers; `5,000` is accepted.
+- **New-member signup:** one Buddys membership question after joining a configured
+  server. Confirmed members join future invitations. Existing members use
+  `/join-buddys`; there is no mass welcome. Leaving deactivates registration.
+- **Private manager reports:** full paginated recipient lists, RSVP totals, stats and
+  delivery failures, refreshed on the normal 30-second scheduler tick.
+- **Announcements, extra events, cancellations and audited corrections.**
+- **Private test panel:** event, report, announcement, correction, cancellation, calendar
+  and signup tests contact only the tester and use separate server/tester databases.
+- **Multiple servers on one bot connection**, with fixed server scope for forms,
+  DM buttons and permissions. Removing the bot pauses that server's schedules.
+- **Persistent invitations and signup buttons** across restarts.
+- **Retention:** live event history lasts 90 days; latest known stats remain.
+  Backup copies retain older rows until their own rotation.
+- **AWS daily private backups:** integrity-checked SQLite snapshots, local rotation
+  and encrypted S3 upload. Keep an additional private copy outside AWS.
 
-Use `/join-buddys` to sign up or change your in-game name if DMs are blocked.
-Managers can use `/members` for the private registration list and welcome DM failures.
-The test panel's **Test new-member signup** button exercises the flow privately
-without enrolling the tester in the real roster.
+### Weekly calendar
 
-### Private testing
+| Invitation DM | Event | Event starts |
+| --- | --- | --- |
+| Wednesday, 5 PM | Shadow War | Thursday, 8 PM |
+| Friday, 5 PM | Shadow War | Saturday, 8 PM |
+| Saturday, 5 PM | Rite of Exile / Vigil of Blades | Sunday, 8 PM |
 
-**Try it privately:** use `/test-bot` or the **Test bot** button already sent to the
-configured owner's DMs. Open a fresh panel after a bot restart. The test panel
-can DM an RSVP invitation or announcement only to you, show your test list,
-exercise corrections/cancellation, and preview the calendar. Test events/stats
-use separate ignored test-data databases. No clan recipient roles are contacted.
-Test DM buttons survive restarts; test events close after one hour. A Test bot
-button is also posted in the management channel when `/clan-setup` runs.
+All times are **America/New_York**, including daylight saving changes.
+There are **no automatic reminders**. Schedules may be saved before positions or
+recipients are filled; an empty recipient list sends no DMs. Registrations apply
+to future recipient snapshots. Responses and corrections close at event start.
 
-### Command reference
+## Reliability and privacy
 
-| Command | Access / purpose |
-| --- | --- |
-| `/test-bot` | Six managers: private testing panel; only the tester receives test messages |
-| `/join-buddys` | Members: confirm clan membership and save/update in-game name |
-| `/members` | Six managers: private membership registrations and welcome delivery status |
-| `/clan-setup` | Owner only: create/repair private management channel |
-| `/management` | Owner only: assign leader + four officers |
-| `/recipients` | Six managers: select roles/players to add or remove per schedule |
-| `/recipient-preview` | Six managers: inspect every current recipient privately |
-| `/schedule` | Six managers: edit message, preview, enable/pause recurring sends |
-| `/schedules` | Six managers: show weekly calendar and status |
-| `/events` | Six managers: complete event calendar with IDs |
-| `/report` | Six managers: refresh all pages of an event list |
-| `/correct` | Six managers: correct RSVP/stats before start; audit retained |
-| `/cancel-event` | Six managers: confirm one cancellation; one notice per delivered invitation |
-| `/announce` | Six managers: editable DM announcement preview, then send without RSVP |
-| `/extra-event` | Six managers: editable extra RSVP event preview, then schedule |
-| `/audit` | Six managers: private complete event change history |
-| `/rsvp` | Players: list only their own open invitations, or open one with event_id |
+Recipients are saved before dispatch. Missed sends catch up only before event start.
+Sent, failed and uncertain deliveries are not blindly resent. A network failure
+between Discord accepting a message and SQLite recording it cannot guarantee
+exactly-once delivery; uncertain outcomes are visible for manager review.
 
-Managers' commands are enforced by user ID at execution, including form submissions
-and confirmation clicks. Slash menu visibility is not authorization. No one gains
-manager powers from a Discord role or Administrator alone.
+The bot checks report-channel privacy and pauses delivery if its access list is
+exposed. Discord server owners and Administrators can bypass channel permissions.
+Membership is self-reported; registration does not grant roles, management access,
+or an automatic Going RSVP.
 
-## Reliability and retention
+## Development and AWS changes
 
-SQLite stores each event/recipient before dispatch. Persistent DM buttons survive
-restarts. Catch up missed sends only before event start. An OS process lock prevents
-two local processes owning the same DB. Do not run production copies on two hosts.
-Sent/failed/uncertain deliveries are never automatically resent. A crash or timeout
-between Discord accepting a DM and the DB recording it is marked uncertain for
-manager review, because distributed exactly-once delivery is not guaranteed.
+Runtime: Python + discord.py + SQLite. `bot.py` owns Discord flows and scheduling;
+`clan.py` owns storage, calendar and rules; `instance_lock.py` provides the process lock.
+`requirements-frozen.txt` contains the tested runtime dependency versions.
 
-Private lists refresh on the 30-second scheduler tick; all recipients are paginated,
-not truncated. The bot checks the report channel's explicit permissions before
-publishing sensitive data. Delivery pauses if that privacy configuration is exposed.
-It cannot retract data already read/copied or stop a Discord admin bypass.
+The last code validation passed **97 automated tests**, including mocked external calls.
+The owner reported the bot working on **October 18, 2026**; this is separate from
+claiming every player flow was independently tested end to end.
 
-Live event lists and audits expire after 90 days; latest stats remain. Historical
-backups may retain expired rows until those backups rotate. Old public-signup DB
-tables remain unchanged, but old public buttons are not migrated to this private
-flow. Do not replace or delete an old DB without a private verified backup.
-
-## AWS and validation
-
-AWS Free plan is ACTIVE; the deployment preflight reported $100 in credits and
-expiry April 17, 2027. EC2, its public IPv4 address, disk, and S3 consume credits;
-hosting is not indefinitely free. No Paid upgrade was performed. Check current
-remaining credits in AWS Settings > Billing. See [docs/AWS.md](docs/AWS.md).
-
-Run offline validation (no Discord login, AWS calls, or player DMs):
-
-```powershell
-./.venv/Scripts/python.exe -m unittest discover -s tests -v
+```bash
+python -m unittest discover -s tests -v
 ```
 
-Source: `bot.py` (Discord UI/dispatch), `clan.py` (SQLite/rules/calendar),
-`instance_lock.py` (single-process protection), `deploy/aws/` (host setup, private bundling, preflight, and S3 backups).
-Full decisions: [docs/APPROVED_SPEC.md](docs/APPROVED_SPEC.md).
+For an AWS change: back up production → edit/test → commit/push → stage reviewed code
+on the host → preserve private configuration and live DB → restart `guild-bot` →
+verify Gateway, command sync and `/test-bot`. See [AWS operations](docs/AWS.md) and
+[hosting/update procedures](docs/HOSTING.md). A new AWS service also needs a
+same-Region design, current plan/cost check, scoped role permissions and validation
+before enabling player-facing sends. GitHub Actions auto-deployment is not configured.
 
-## Finish clan setup
-
-1. The configured owner runs `/management` and fills whichever leader/officer slots
-   are available. Blank slots keep saved assignments; vacant positions are allowed.
-   Use its `clear` option to remove a position. The owner always retains access.
-2. Existing clan members can use `/join-buddys`; new arrivals get the welcome DM.
-   Managers may also select roles/individuals with `/recipients` per schedule.
-3. Review `/recipient-preview`. Confirm the players who will actually receive DMs.
-4. Use `/test-bot` to exercise event responses, stats, corrections, cancellation,
-   announcements, onboarding, and the calendar using only the tester's account.
-5. Use `/schedule` separately for thursday, saturday, and sunday, review the preview,
-   and save with enabled=true. This enables real automatic messages at the listed times.
-6. Keep the AWS host running; no Windows launch is needed. Review Free-plan credits
-   and export a private backup before plan expiry.
-
-Do not run a second production process. See the handoff for AWS operations and
-verification evidence.
+Never commit tokens, cloud credentials, `.env`, databases, backups or player logs.
+Operational handoff/log files stay local through `.gitignore`.
+The [original Oracle project description](docs/ORIGINAL_README.md) is preserved
+as historical context.

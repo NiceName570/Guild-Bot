@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="340" viewBox="0 0 1440 340" role="img" aria-labelledby="title desc">
+  <title id="title">Buddys Clan Manager</title>
+  <desc id="desc">Purple shield and calendar. Private invitations. Clear RSVPs. Your clan, in sync.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101024"/><stop offset="1" stop-color="#271342"/></linearGradient>
+    <linearGradient id="accent" x2="1" y2="1"><stop stop-color="#b6a0ff"/><stop offset="1" stop-color="#7554ee"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#9870ff" stop-opacity=".22"/><stop offset="1" stop-color="#9870ff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="1" y="1" width="1438" height="338" rx="22" fill="url(#bg)" stroke="#55406e"/>
+  <ellipse cx="1180" cy="170" rx="390" ry="260" fill="url(#glow)"/>
+  <path d="M980 0v340M1100 0v340M1220 0v340M1340 0v340M900 90h540M900 210h540" stroke="#bba5ff" stroke-opacity=".055"/>
+  <rect x="53" y="50" width="183" height="22" rx="11" fill="#a48aff" fill-opacity=".15"/>
+  <text x="66" y="66" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="2" fill="#cdbdff">DISCORD CLAN TOOLS</text>
+  <text x="53" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="59" font-weight="800" letter-spacing="-1.6" fill="#faf8ff">Buddys Clan Manager</text>
+  <text x="56" y="184" font-family="Segoe UI,Arial,sans-serif" font-size="24" fill="#c6badc">Private invitations. Clear RSVPs. Your clan, in sync.</text>
+  <g font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600">
+    <rect x="56" y="232" width="160" height="35" rx="17.5" fill="#a58aff" fill-opacity=".12" stroke="#655080"/>
+    <text x="75" y="255" fill="#e7dcff">Scheduled events</text>
+    <rect x="230" y="232" width="152" height="35" rx="17.5" fill="#a58aff" fill-opacity=".12" stroke="#655080"/>
+    <text x="252" y="255" fill="#e7dcff">Private reports</text>
+    <rect x="396" y="232" width="149" height="35" rx="17.5" fill="#a58aff" fill-opacity=".12" stroke="#655080"/>
+    <text x="415" y="255" fill="#e7dcff">17 commands</text>
+  </g>
+  <g transform="translate(1120 53)">
+    <path d="M85 0l88 34v73c0 56-36 99-88 125C33 206-3 163-3 107V34z" fill="#19152c" stroke="url(#accent)" stroke-width="3"/>
+    <path d="M85 14l73 29v64c0 46-29 82-73 108-44-26-73-62-73-108V43z" fill="#8e65ee" fill-opacity=".12"/>
+    <rect x="38" y="70" width="94" height="91" rx="13" fill="#211b39" stroke="#c4adff" stroke-width="2.5"/>
+    <path d="M39 96h92M60 59v23M110 59v23" stroke="#c4adff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M61 127l16 15 32-30" fill="none" stroke="#a4f4d0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="150" cy="160" r="22" fill="#a4f4d0"/>
+    <path d="M142 160l6 6 11-12" fill="none" stroke="#1c3f36" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

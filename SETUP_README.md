@@ -220,4 +220,4 @@ was performed. Preserve a private database and configuration copy before expiry.
 | Manager cannot change positions | Expected: only the configured owner can use `/management` |
 
 For full technical details, current implementation evidence, and remaining work,
-read [HANDOFF.md](HANDOFF.md).
+read [AWS operations](docs/AWS.md) and [hosting instructions](docs/HOSTING.md).
