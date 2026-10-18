@@ -1,5 +1,21 @@
 # Approved clan manager requirements
 
+## October 18 amendment: incomplete fields must not block saving
+
+Owner explicitly changed the earlier required-field behavior. Leader/officer slots
+are optional; omitted assignments keep saved choices, and an explicit clear option
+removes a position. Owner access is permanent and assignment control stays owner-only.
+Vacancies and fewer than six managers are valid; duplicate people count once.
+Schedules may be saved/enabled before selecting managers or recipients. No recipients
+means no DMs. Blank schedule or message edits retain defaults/saved text. Blank
+signup names use the member's Discord name, which can be edited later.
+
+Owner separately confirmed that RSVP Going accepts partial or entirely blank stats.
+Unknown values are stored/displayed as missing, never zero. Provided values must
+still be nonnegative integers. Latest known values remain available for future
+prefill. Decline still requires no stats. This amendment supersedes conflicting
+required-field statements in the original requirements preserved below.
+
 Approved by the project owner in this chat on October 17, 2026, following a
 grill-me interview. Implementation branch: `clan-manager-aws` in
 `NiceName570/guild-bot`. Target is another clan's Discord server, not the

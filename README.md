@@ -10,7 +10,7 @@ Intent and Manage Channels are enabled; the private management channel exists.
 The leader/four officers still need assigning and all three weekly schedules
 remain **paused**. Daily private database backups upload to S3.
 
-The current build passed **90 automated tests**. These include mocked Discord
+The current build passed **97 automated tests**. These include mocked Discord
 interactions; a real event RSVP, new-member signup, and scheduled send still need
 user verification in Discord. The original Oracle bot was not contacted or changed.
 Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
@@ -34,8 +34,9 @@ them. Registered Buddys members, selected roles, and individually selected playe
 are combined and deduplicated. Registration does not enable a paused schedule.
 
 Going opens a form for armor, armor penetration, potency, and resistance, prefilled
-with the player's latest values. All four valid numbers are required before the
-response becomes Going. Not going needs no form. Responses close at event start.
+with the player's latest values. Every stat is optional: submit Going with any or
+all stats blank. Missing values show as — rather than zero; supplied values must
+be valid nonnegative whole numbers. Not going needs no form. Responses close at event start.
 
 The owner, leader, and four officers see a private, automatically updated list of
 every recipient, RSVP, stats, and DM delivery outcome. Only the configured bot
@@ -157,8 +158,9 @@ Full decisions: [docs/APPROVED_SPEC.md](docs/APPROVED_SPEC.md).
 
 ## Finish clan setup
 
-1. The configured owner runs `/management` and chooses the leader and four officers.
-   Exactly six distinct people have management access, including the owner.
+1. The configured owner runs `/management` and fills whichever leader/officer slots
+   are available. Blank slots keep saved assignments; vacant positions are allowed.
+   Use its `clear` option to remove a position. The owner always retains access.
 2. Existing clan members can use `/join-buddys`; new arrivals get the welcome DM.
    Managers may also select roles/individuals with `/recipients` per schedule.
 3. Review `/recipient-preview`. Confirm the players who will actually receive DMs.

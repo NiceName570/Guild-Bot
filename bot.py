@@ -111,9 +111,9 @@ class StatsModal(discord.ui.Modal):
         for label, value in zip(STAT_LABELS, values):
             field = discord.ui.TextInput(
                 label=label,
-                required=True,
+                required=False,
                 max_length=25,
-                default=str(value) if value != "" else None,
+                default=str(value) if value not in ("", None) else None,
             )
             self.inputs.append(field)
             self.add_item(field)
@@ -133,7 +133,9 @@ class StatsModal(discord.ui.Modal):
         self.client.store.respond(
             self.event_id, self.subject_id, "going", values, now_ts(), self.manager_id
         )
-        await private_reply(interaction, "Saved: **Going**. Your four stats are recorded.")
+        await private_reply(
+            interaction, "Saved: **Going**. Provided stats are recorded; blanks stay unknown."
+        )
 
     async def on_error(self, interaction, error):
         LOG.error("Stats form failed: %s", type(error).__name__)
@@ -209,10 +211,11 @@ class ScheduleModal(discord.ui.Modal):
         super().__init__(title=f"Edit {schedule['key']} invitation")
         self.client, self.schedule, self.enabled = client, schedule, enabled
         self.name_input = discord.ui.TextInput(
-            label="Event name", default=schedule["title"], max_length=100
+            label="Event name", default=schedule["title"], max_length=100, required=False
         )
         self.body_input = discord.ui.TextInput(
             label="Invitation message",
+            required=False,
             default=schedule["body"],
             style=discord.TextStyle.paragraph,
             max_length=1500,
@@ -222,16 +225,8 @@ class ScheduleModal(discord.ui.Modal):
 
     async def on_submit(self, interaction):
         self.client.require_manager(interaction)
-        if (
-            self.enabled
-            and not self.client.store.targets(self.schedule["id"])
-            and not self.client.store.registered_members(self.schedule["guild_id"])
-        ):
-            raise ValueError(
-                "Select recipients or register at least one Buddys member before enabling this schedule."
-            )
-        draft = {"body": self.body_input.value}
-        title = self.name_input.value
+        draft = {"body": self.body_input.value.strip() or self.schedule["body"]}
+        title = self.name_input.value.strip() or self.schedule["title"]
         draft["render"] = lambda: (
             f"**{self.schedule['key']} schedule preview**\n"
             f"Event: {title}\nStarts: 8 PM Eastern · sends: previous day 5 PM Eastern\n"
@@ -344,6 +339,7 @@ class DraftModal(discord.ui.Modal):
         self.view = view
         self.field = discord.ui.TextInput(
             label="Message",
+            required=False,
             style=discord.TextStyle.paragraph,
             default=view.edit["body"],
             max_length=1500,
@@ -352,7 +348,7 @@ class DraftModal(discord.ui.Modal):
 
     async def on_submit(self, interaction):
         await self.view.interaction_check(interaction)
-        self.view.edit["body"] = self.field.value
+        self.view.edit["body"] = self.field.value.strip() or self.view.edit["body"]
         await interaction.response.edit_message(content=self.view.edit["render"](), view=self.view)
 
     async def on_error(self, interaction, error):
@@ -381,7 +377,7 @@ class MemberNameModal(discord.ui.Modal):
         )
         self.name_input = discord.ui.TextInput(
             label="In-game name",
-            min_length=1,
+            required=False,
             max_length=32,
             default=saved["game_name"] if saved else None,
         )
@@ -408,7 +404,10 @@ class MemberNameModal(discord.ui.Modal):
         if member.bot:
             raise ValueError("Only human clan members can sign up.")
         self.client.store.register_member(
-            self.client.guild_id, self.user_id, self.nonce, self.name_input.value
+            self.client.guild_id,
+            self.user_id,
+            self.nonce,
+            self.name_input.value.strip() or member.display_name[:32],
         )
         test = isinstance(self.client, TestSession)
         await private_reply(
@@ -1261,44 +1260,49 @@ class ClanBot(discord.Client):
 
         @self.tree.command(
             name="management",
-            description="Owner: assign the leader and exactly four officers",
+            description="Owner: assign any available leader/officer positions; blanks keep saved choices",
         )
         @app_commands.guild_only()
         async def management(
             interaction: discord.Interaction,
-            leader: discord.Member,
-            officer1: discord.Member,
-            officer2: discord.Member,
-            officer3: discord.Member,
-            officer4: discord.Member,
+            leader: discord.Member | None = None,
+            officer1: discord.Member | None = None,
+            officer2: discord.Member | None = None,
+            officer3: discord.Member | None = None,
+            officer4: discord.Member | None = None,
+            clear: Literal["leader", "officer1", "officer2", "officer3", "officer4"] | None = None,
         ):
             self.require_owner(interaction)
-            members = [leader, officer1, officer2, officer3, officer4]
-            if any(m.bot for m in members) or len({self.owner_id, *[m.id for m in members]}) != 6:
-                raise ValueError("Choose five different human members, excluding yourself.")
+            choices = [leader, officer1, officer2, officer3, officer4]
+            ids = [m.id if m is not None and not m.bot else None for m in choices]
+            assignments = self.store.manager_assignments(
+                interaction.guild_id, self.owner_id, ids[0], ids[1:], clear
+            )
             setting = self.store.settings(interaction.guild_id)
             if not setting:
                 raise ValueError("Run /clan-setup first.")
             await interaction.response.defer(ephemeral=True)
             channel = await interaction.guild.fetch_channel(setting["channel_id"])
-            owner = await interaction.guild.fetch_member(self.owner_id)
+            members = [await interaction.guild.fetch_member(uid) for uid in assignments.values()]
             require_channel_permission_management(channel)
             await channel.edit(
-                overwrites=channel_overwrites(
-                    interaction.guild, [owner, *members], manage_permissions=True
-                ),
+                overwrites=channel_overwrites(interaction.guild, members, manage_permissions=True),
                 reason="Bot owner updated the six manager assignments",
             )
             self.store.set_managers(
                 interaction.guild_id,
                 interaction.user.id,
                 self.owner_id,
-                leader.id,
-                [m.id for m in members[1:]],
+                ids[0],
+                ids[1:],
+                clear,
             )
             await private_reply(
                 interaction,
-                "Saved: you, the leader, and four officers. Only you can change these assignments.",
+                "Saved. Blank fields keep existing assignments; unfilled positions are allowed. "
+                "Duplicate people count once; you already have owner access. "
+                "Only you can change assignments.\n"
+                + "\n".join(f"{slot}: <@{uid}>" for slot, uid in assignments.items()),
             )
 
         @self.tree.command(
@@ -1350,8 +1354,6 @@ class ClanBot(discord.Client):
             enabled: bool = True,
         ):
             self.require_manager(interaction)
-            if len(self.store.managers(interaction.guild_id)) != 6:
-                raise ValueError("The owner must assign all six positions with /management first.")
             selected = self.store.schedule(interaction.guild_id, schedule)
             await interaction.response.send_modal(ScheduleModal(self, selected, enabled))
 

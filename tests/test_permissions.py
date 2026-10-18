@@ -56,6 +56,8 @@ class ChannelPermissionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_management_keeps_permission_only_for_bot(self):
         members = [MagicMock(id=number, bot=False) for number in range(2, 7)]
+        people = {member.id: member for member in [self.owner, *members]}
+        self.guild.fetch_member.side_effect = lambda uid: people[uid]
         await self.client.tree.get_command("management").callback(self.interaction, *members)
         overwrites = self.channel.edit.call_args.kwargs["overwrites"]
         self.assertTrue(overwrites[self.bot_member].manage_roles)
@@ -71,3 +73,26 @@ class ChannelPermissionTests(unittest.IsolatedAsyncioTestCase):
         self.channel.send.assert_not_awaited()
         with self.assertRaises(PermissionError):
             require_channel_permission_management(self.channel)
+
+    async def test_partial_management_saves_and_preserves_omitted_positions(self):
+        leader = MagicMock(id=2, bot=False)
+        officer = MagicMock(id=3, bot=False)
+        people = {1: self.owner, 2: leader, 3: officer}
+        self.guild.fetch_member.side_effect = lambda uid: people[uid]
+        command = self.client.tree.get_command("management")
+        self.assertTrue(all(not p.required for p in command.parameters))
+        await command.callback(self.interaction, leader=leader, officer1=self.owner)
+        self.assertEqual(
+            self.store.managers(100),
+            [{"slot": "leader", "user_id": 2}, {"slot": "owner", "user_id": 1}],
+        )
+        await command.callback(self.interaction, officer3=officer)
+        self.assertTrue(self.store.is_manager(100, 2, 1))
+        self.assertTrue(self.store.is_manager(100, 3, 1))
+        await command.callback(self.interaction, clear="officer3")
+        self.assertFalse(self.store.is_manager(100, 3, 1))
+        self.assertNotIn(officer, self.channel.edit.call_args.kwargs["overwrites"])
+
+    async def test_blank_management_is_valid_with_only_owner(self):
+        await self.client.tree.get_command("management").callback(self.interaction)
+        self.assertEqual(self.store.managers(100), [{"slot": "owner", "user_id": 1}])

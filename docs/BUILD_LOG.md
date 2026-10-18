@@ -229,3 +229,25 @@ member of both. Buddiez's bot role lacks Manage Channels; a server administrator
 must approve the updated invite/requested permissions before /clan-setup can create
 its private channel. Existing CallMeFort schedules remained paused. No Windows bot
 process exists. No clan members were DMed for these checks.
+
+## Optional fields and partial setup — October 18, 2026 Eastern
+
+Owner reported /management's required officer2/3/4 fields preventing setup with
+fewer people and requested that unfilled sections not stop submissions. Explicitly
+confirmed Going should also accept partial or completely blank stats. All manager
+positions are now optional, omitted values retain existing assignments, an explicit
+clear choice removes a slot, and duplicate/owner selections count only once.
+Only the configured owner assigns positions. Private overwrite updates contain
+exactly the resulting assigned members plus the bot; permission-management grant
+is preserved. Removed six-manager and recipient-count prerequisites from schedule
+saving/enabling. Schedule/message blanks retain wording; blank signup names fall
+back to the Discord name. Required identity/date targets and invalid numeric values
+are still validated rather than inventing a person, time or number.
+
+Going forms accept blanks as SQL NULL in event rows. New additive clan_latest_stats
+table seeds legacy saved stats, allows unknown fields and merges only provided
+values, retaining prior known values for future prefill. No legacy table is dropped.
+Reports show dashes for unknown values. Tests cover blank/full/partial submissions,
+legacy migration and restart, partial manager saves and explicit revocation,
+optional command metadata, schedule defaults and signup fallback. All 97 tests,
+Ruff check/format and whitespace validation passed. AWS rollout follows.

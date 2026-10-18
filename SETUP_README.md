@@ -32,9 +32,11 @@ In the clan's Discord server, run:
 /management
 ```
 
-Select the **leader** and **four officers** in the command fields. Choose five
-different people; do not select yourself. You are already the configured owner,
-making six managers in total.
+Fill in whichever **leader/officer** positions you have available. Every position
+is optional; blank fields keep saved choices. You can save just the leader or just
+your owner access, then add officers later. Duplicate people count once, and you
+already have owner access. Use `/management clear:officer2` (or another slot) to
+remove an assignment explicitly. At most six distinct people have management access.
 
 **Only you can assign or change these positions.** The leader and officers can
 manage events and see the private lists, but cannot replace managers.
@@ -105,8 +107,9 @@ Run `/schedule`, choose **thursday**, set **enabled** to **true**, and submit.
 Edit the event name/message in the form, inspect the preview, then click
 **Save schedule**. Repeat for **saturday** and **sunday**.
 
-The six management positions must be assigned, and the schedule needs either
-selected recipients or at least one confirmed Buddys registration before enabling.
+You can save or enable schedules before filling manager positions or choosing
+recipients. With no recipients, nobody receives an invitation; add recipients for
+future dispatches. Blank schedule wording keeps the saved defaults.
 
 | Invitation sends | Event | Event starts |
 | --- | --- | --- |
@@ -129,8 +132,10 @@ You do not need to run a command for each weekly event.
 The player receives an event DM with **Going** and **Not going** buttons.
 
 - **Going:** fill in armor, armor penetration, potency, and resistance. Previous
-  stats are prefilled if available. All four values must be whole numbers of zero
-  or higher; `5,000` is accepted. Submit the form to save Going.
+  stats are prefilled if available. All four fields are optional; submit Going even
+  with every field blank. Filled values must be whole numbers of zero or higher;
+  `5,000` is accepted. Missing stats display as —, not zero. Previously known stats
+  are kept for later prefill even when a current event's field is left blank.
 - **Not going:** records the decline without asking for stats.
 - Closing the form without submitting does not record a new Going response.
 - Players can change their response or stats until the event starts.

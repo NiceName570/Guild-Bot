@@ -12,7 +12,19 @@ Verified: initial Gateway connection, integrity-checked private S3 backup, actua
 EC2 reboot, then automatic service startup and a fresh Gateway connection.
 Private config and DB are mode 600 owned by clanbot; backup timer enabled.
 Configuration, DB and isolated test databases were migrated. The local copy is
-now stale and must not overwrite production. All 90 automated tests passed.
+now stale and must not overwrite production. All 97 automated tests passed.
+
+Latest user correction (October 18): incomplete manager setup and blank RSVP stats
+must not block saving. /management positions are optional and omitted fields keep
+existing assignments; clear explicitly removes a slot. Duplicate/owner selections
+are deduplicated, and owner-only assignment control remains. Schedules no longer
+require six managers or recipients before saving. Stats forms accept partial/all
+blank values as SQL NULL in event rows and show dashes in reports. Additive
+clan_latest_stats table seeds from legacy clan_stats and retains latest provided
+values per field; blanks do not erase known prefill or invent zeroes. Legacy tables
+are preserved. Blank schedule/message edits keep wording; blank signup uses the
+member's Discord display name. These corrections supersede historical required-field
+statements below and in the original approved specification.
 
 Latest scope: user authorized use in any server that installs the bot. Production
 uses multi_guild=True: global commands plus immediate per-guild sync on ready/join,

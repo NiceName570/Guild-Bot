@@ -43,8 +43,10 @@ def parse_stat(value):
 
 def validate_stats(values):
     if len(values) != 4:
-        raise ValueError("All four stats are required.")
-    return tuple(parse_stat(value) for value in values)
+        raise ValueError("Expected four stat fields; blank values are allowed.")
+    return tuple(
+        None if value is None or str(value).strip() == "" else parse_stat(value) for value in values
+    )
 
 
 def parse_eastern(value):
@@ -156,6 +158,13 @@ class Store:
                     guild_id INTEGER PRIMARY KEY, onboarding_since INTEGER NOT NULL
                 );
             """)
+            # Nullable latest values preserve unknown stats without inventing zeroes.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS clan_latest_stats (guild_id INTEGER NOT NULL, "
+                "user_id INTEGER NOT NULL, armor INTEGER, armor_pen INTEGER, potency INTEGER, "
+                "resistance INTEGER, updated_at INTEGER NOT NULL, PRIMARY KEY(guild_id,user_id))"
+            )
+            conn.execute("INSERT OR IGNORE INTO clan_latest_stats SELECT * FROM clan_stats")
             # An in-flight external send cannot safely be retried after an abrupt crash.
             conn.execute(
                 "UPDATE clan_onboarding SET delivery='uncertain',error='Restart during welcome delivery' WHERE delivery='sending'"
@@ -314,32 +323,34 @@ class Store:
     def is_manager(self, guild_id, user_id, owner_id):
         return user_id == owner_id or any(m["user_id"] == user_id for m in self.managers(guild_id))
 
-    def set_managers(self, guild_id, actor_id, owner_id, leader, officers):
+    def manager_assignments(self, guild_id, owner_id, leader=None, officers=(), clear_slot=None):
+        slots = ("leader", "officer1", "officer2", "officer3", "officer4")
+        if len(officers) > 4 or (clear_slot is not None and clear_slot not in slots):
+            raise ValueError("Choose an available leader or officer slot.")
+        assignments = {row["slot"]: row["user_id"] for row in self.managers(guild_id)}
+        assignments["owner"] = owner_id
+        if clear_slot:
+            assignments.pop(clear_slot, None)
+        seen = {owner_id}
+        for slot, uid in zip(slots, (leader, *officers)):
+            if uid is None or uid in seen:
+                continue
+            seen.add(uid)
+            assignments = {key: value for key, value in assignments.items() if value != uid}
+            assignments[slot] = uid
+        return assignments
+
+    def set_managers(self, guild_id, actor_id, owner_id, leader=None, officers=(), clear_slot=None):
         if actor_id != owner_id:
             raise PermissionError("Only the configured bot owner can assign managers.")
-        people = [owner_id, leader, *officers]
-        if len(officers) != 4 or len(set(people)) != 6:
-            raise ValueError("Select six different people: you, the leader, and four officers.")
+        assignments = self.manager_assignments(guild_id, owner_id, leader, officers, clear_slot)
         with self.db() as conn:
             conn.execute("DELETE FROM clan_managers WHERE guild_id=?", (guild_id,))
             conn.executemany(
                 "INSERT INTO clan_managers VALUES(?,?,?)",
-                [
-                    (guild_id, slot, uid)
-                    for slot, uid in zip(
-                        (
-                            "owner",
-                            "leader",
-                            "officer1",
-                            "officer2",
-                            "officer3",
-                            "officer4",
-                        ),
-                        people,
-                    )
-                ],
+                [(guild_id, slot, uid) for slot, uid in assignments.items()],
             )
-            self._audit(conn, guild_id, None, actor_id, None, "managers", {"users": people})
+            self._audit(conn, guild_id, None, actor_id, None, "managers", {"slots": assignments})
 
     def schedule(self, guild_id, key):
         row = self.one("SELECT * FROM clan_schedules WHERE guild_id=? AND key=?", (guild_id, key))
@@ -370,15 +381,6 @@ class Store:
         if not title.strip() or len(title) > 100 or len(body) > 1500:
             raise ValueError(
                 "Use a title of 1–100 characters and message text up to 1,500 characters."
-            )
-        schedule_guild = self.one("SELECT guild_id FROM clan_schedules WHERE id=?", (schedule_id,))
-        if (
-            enabled
-            and not self.targets(schedule_id)
-            and not self.registered_members(schedule_guild["guild_id"])
-        ):
-            raise ValueError(
-                "Select recipients or register at least one Buddys member before enabling this schedule."
             )
         with self.db() as conn:
             conn.execute(
@@ -496,10 +498,14 @@ class Store:
 
     def last_stats(self, guild_id, user_id):
         row = self.one(
-            "SELECT * FROM clan_stats WHERE guild_id=? AND user_id=?",
+            "SELECT * FROM clan_latest_stats WHERE guild_id=? AND user_id=?",
             (guild_id, user_id),
         )
-        return tuple(row[key] for key in STAT_FIELDS) if row else ("", "", "", "")
+        return (
+            tuple(row[key] if row[key] is not None else "" for key in STAT_FIELDS)
+            if row
+            else ("", "", "", "")
+        )
 
     @staticmethod
     def _audit(conn, guild_id, event_id, actor_id, subject_id, action, detail):
@@ -538,9 +544,12 @@ class Store:
             )
             if status == "going":
                 conn.execute(
-                    "INSERT INTO clan_stats VALUES(?,?,?,?,?,?,?) ON CONFLICT(guild_id,user_id) "
-                    "DO UPDATE SET armor=excluded.armor,armor_pen=excluded.armor_pen,"
-                    "potency=excluded.potency,resistance=excluded.resistance,updated_at=excluded.updated_at",
+                    "INSERT INTO clan_latest_stats VALUES(?,?,?,?,?,?,?) ON CONFLICT(guild_id,user_id) "
+                    "DO UPDATE SET armor=COALESCE(excluded.armor,clan_latest_stats.armor),"
+                    "armor_pen=COALESCE(excluded.armor_pen,clan_latest_stats.armor_pen),"
+                    "potency=COALESCE(excluded.potency,clan_latest_stats.potency),"
+                    "resistance=COALESCE(excluded.resistance,clan_latest_stats.resistance),"
+                    "updated_at=excluded.updated_at",
                     (event["guild_id"], user_id, *stats, timestamp),
                 )
             self._audit(
@@ -624,7 +633,11 @@ def report_pages(event, recipients, audits, timestamp):
             "not_going": "Not going",
             "awaiting": "Awaiting response",
         }[row["status"]]
-        stats = " / ".join(str(row[k]) for k in STAT_FIELDS) if row["status"] == "going" else "—"
+        stats = (
+            " / ".join(str(row[k]) if row[k] is not None else "—" for k in STAT_FIELDS)
+            if row["status"] == "going"
+            else "—"
+        )
         delivery = row["delivery"]
         issue = f" ({row['delivery_error']})" if row["delivery_error"] else ""
         line = f"{name} <@{row['user_id']}> · **{label}** · {stats} · DM: {delivery}{issue}"

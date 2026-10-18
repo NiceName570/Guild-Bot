@@ -120,14 +120,13 @@ class StoreTests(StoreFixture, unittest.TestCase):
         self.assertTrue(self.store.is_manager(100, 6, 1))
         self.assertFalse(self.store.is_manager(100, 7, 1))
 
-    def test_six_unique_people(self):
-        with self.assertRaises(ValueError):
-            self.store.set_managers(100, 1, 1, 1, [3, 4, 5, 6])
+    def test_owner_already_has_access_and_duplicates_are_not_added(self):
+        self.store.set_managers(100, 1, 1, 1, [3, 4, 5, 6])
         self.assertEqual(len(self.store.managers(100)), 6)
 
-    def test_going_requires_complete_valid_form_atomically(self):
+    def test_invalid_stat_rejects_form_atomically(self):
         with self.assertRaises(ValueError):
-            self.store.respond(self.event_id, 10, "going", [1, 2, "", 4], self.timestamp)
+            self.store.respond(self.event_id, 10, "going", [1, 2, "invalid", 4], self.timestamp)
         row = self.store.recipient(self.event_id, 10)
         self.assertEqual(row["status"], "awaiting")
         self.assertIsNone(row["armor"])
@@ -193,10 +192,10 @@ class StoreTests(StoreFixture, unittest.TestCase):
         )
         self.assertEqual(self.store.event(events[0]["id"])["state"], "cancelled")
 
-    def test_schedule_requires_targets(self):
+    def test_schedule_can_be_saved_without_targets(self):
         schedule = self.store.schedule(100, "sunday")
-        with self.assertRaises(ValueError):
-            self.store.edit_schedule(schedule["id"], schedule["title"], DEFAULT_BODY, True, 1)
+        self.store.edit_schedule(schedule["id"], schedule["title"], DEFAULT_BODY, True, 1)
+        self.assertTrue(self.store.schedule(100, "sunday")["enabled"])
 
     def test_history_cleanup_keeps_latest_stats_and_other_events(self):
         self.store.respond(self.event_id, 10, "going", [1, 2, 3, 4], self.timestamp)
