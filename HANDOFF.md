@@ -16,6 +16,7 @@ claim of complete production rollout. Preserve the original project and paper tr
 - No PR has been opened and main has not been modified.
 
 Read README.md for usage, docs/APPROVED_SPEC.md for the approved base design,
+SETUP_README.md for the owner's step-by-step setup/running guide,
 docs/BUILD_LOG.md for the chronological record, and docs/AWS.md for deployment.
 The original main README is preserved in docs/ORIGINAL_README.md. Its Oracle
 deployment statements are historical, not newly verified.

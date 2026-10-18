@@ -17,6 +17,9 @@ Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_
 
 For another developer or a fresh chat, start with **[HANDOFF.md](HANDOFF.md)**.
 
+For step-by-step Discord setup and instructions to run the bot, use
+**[SETUP_README.md](SETUP_README.md)**.
+
 ## Weekly schedule
 
 | Send invitation | Event | Event starts |
