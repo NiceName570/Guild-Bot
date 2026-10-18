@@ -218,3 +218,14 @@ cross-server RSVP rejection, fixed DM signup scope, per-server test stores/butto
 restart restoration, new-server sync and server-specific removal handling. Ruff
 check/format and Git whitespace checks passed. Production rollout follows this
 entry; live player RSVP/new-join acceptance remains a separate manual check.
+
+Production rollout succeeded: backed up the live DB, fetched bot.py from exact
+Git commit 1b6ea46fecf6ffa2a5d355be2fba00bc4672e177 over verified HTTPS, matched
+SHA256 642555f346eaac88292faa183c1701f110b1a06c07f2b73e37da7a68eaec01d5,
+preserved the previous source, atomically installed and restarted on AWS. Gateway
+reconnected. Discord REST verified 17 global commands and 17 commands in each of
+Buddiez (1525484675638755369) and CallMeFort's server. The configured owner is a
+member of both. Buddiez's bot role lacks Manage Channels; a server administrator
+must approve the updated invite/requested permissions before /clan-setup can create
+its private channel. Existing CallMeFort schedules remained paused. No Windows bot
+process exists. No clan members were DMed for these checks.

@@ -27,6 +27,13 @@ The Public Bot setting was already true. The bot was found installed in Buddiez
 and CallMeFort's server. Live player acceptance in the new server remains separate
 from command registration and automated isolation tests.
 
+Live rollout verified 17 global commands and 17 guild commands in both servers.
+Buddiez ID is 1525484675638755369; bot owner is already a member, but the bot lacks
+Manage Channels there. Its server admin must authorize the documented invite with
+the requested permissions before the owner runs /clan-setup. Do not grant new
+server-wide permissions via another user's session or claim setup is complete.
+Default install settings now request 101392 with bot + applications.commands.
+
 Post-deployment /clan-setup failed with Discord Forbidden because Manage Channels
 does not permit changing channel overwrites. Owner explicitly approved Manage
 Permissions only in #clan-management; enabled through Discord channel settings.
