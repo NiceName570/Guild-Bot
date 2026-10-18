@@ -10,7 +10,7 @@ Intent and Manage Channels are enabled; the private management channel exists.
 The leader/four officers still need assigning and all three weekly schedules
 remain **paused**. Daily private database backups upload to S3.
 
-The current build passed **80 automated tests**. These include mocked Discord
+The current build passed **90 automated tests**. These include mocked Discord
 interactions; a real event RSVP, new-member signup, and scheduled send still need
 user verification in Discord. The original Oracle bot was not contacted or changed.
 Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).
@@ -44,6 +44,21 @@ bypass channel permissions; the bot cannot prevent that platform behavior.
 
 ## Hosting and setup
 
+### Invite to another server
+
+[Add Buddys clan manager to a server](https://discord.com/oauth2/authorize?client_id=1561079116378406982&integration_type=0&scope=bot%20applications.commands&permissions=101392).
+Anyone with permission to install bots in their server can use this link. The
+application ID is public metadata, not a password or a manager-access credential.
+
+The same AWS bot supports multiple servers on one Gateway connection. Each server
+has separate manager assignments, schedules, recipients, registrations and reports.
+The configured bot owner must join each server and run `/clan-setup`; only that
+owner can assign its leader/four officers. Knowing the app ID grants no management
+access. New servers begin with paused schedules and no automatic welcome DMs until
+setup. A server administrator enables Manage Permissions for the bot only in the
+new private channel before manager assignment. Removal pauses that server's schedules.
+`CLAN_GUILD_ID` is the legacy/default server for old DM test launchers, not an allowlist.
+
 The production host is EC2 `i-05620ede0ebe795df` in us-east-2. No PC needs to stay
 on. Use [SETUP_README.md](SETUP_README.md) to assign managers, select recipients,
 test privately, and enable schedules from Discord. Use [docs/AWS.md](docs/AWS.md)
@@ -54,7 +69,7 @@ with the production token.
 
 ### New-member signup
 
-New human members of the configured server receive one private welcome asking
+New human members of a server that completed setup receive one private welcome asking
 whether they belong to **Buddys**. Yes opens an in-game-name form; submitting it
 automatically adds them to future recurring event invitations, alongside saved
 role/player selections. It does not RSVP Going, assign Discord roles, rename

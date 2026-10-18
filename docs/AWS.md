@@ -30,6 +30,14 @@ Production files live under `/opt/guild-bot`. `.env` and `guild.db` are mode 600
 owned by clanbot. All three schedules remain paused; finish manager assignment
 and private Discord acceptance tests before enabling sends.
 
+The single AWS process now supports every server that installs the public bot.
+Commands sync globally and immediately per server on ready/join. Server-specific
+scope objects isolate callbacks, onboarding, private tests and manager assignments.
+No extra host or CLAN_GUILD_ID change is needed for a new server. The bot owner
+still controls manager assignment everywhere. Server setup is required before
+automatic welcomes; schedules begin paused. Existing DBs migrate without schema
+changes. Removing the bot pauses that server's recurring schedules.
+
 ### Maintenance
 
 AWS Console > EC2 in us-east-2 > BuddysClanManager > Connect > Session Manager.

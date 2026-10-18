@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import uuid
+from functools import wraps
 from pathlib import Path
 from typing import Literal
 
@@ -511,6 +512,8 @@ class TestSession:
         self.guild_id = client.guild_id
         self.get_guild = client.get_guild
         self.component_namespace = f"test{user_id}"
+        if client.guild_id != client.primary_guild_id:
+            self.component_namespace += f"g{client.guild_id}"
         self.require_manager = client.require_manager
         self.fetch_user = client.fetch_user
         directory = Path(client.store.path).parent / "test-data"
@@ -549,16 +552,17 @@ class TestLauncher(SafeView):
         label="Test bot", emoji="🧪", style=discord.ButtonStyle.primary, custom_id="clan:test-panel"
     )
     async def open_panel(self, interaction, button):
+        client = self.client
+        if interaction.guild_id is not None:
+            client = client.guild_context(interaction.guild_id)
         # A DM has no guild_id; bind authorization to the configured server explicitly.
         if interaction.guild_id not in (
             None,
-            self.client.guild_id,
-        ) or not self.client.store.is_manager(
-            self.client.guild_id, interaction.user.id, self.client.owner_id
-        ):
+            client.guild_id,
+        ) or not client.store.is_manager(client.guild_id, interaction.user.id, client.owner_id):
             raise PermissionError("Only the selected managers can test this bot.")
         await private_reply(
-            interaction, TestPanel.DESCRIPTION, view=TestPanel(self.client, interaction.user.id)
+            interaction, TestPanel.DESCRIPTION, view=TestPanel(client, interaction.user.id)
         )
 
 
@@ -704,16 +708,53 @@ class TestCorrectionModal(StatsModal):
 
 
 class ClanBot(discord.Client):
-    def __init__(self, store, owner_id, guild_id):
+    def __init__(self, store, owner_id, guild_id, *, multi_guild=False):
         intents = discord.Intents.default()
         intents.members = True
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.store, self.owner_id, self.guild_id = store, owner_id, guild_id
+        self.primary_guild_id = guild_id
         self.tree = app_commands.CommandTree(self)
         self.dispatch_lock = asyncio.Lock()
         self.last_cleanup = 0
         self.test_sessions = {}
+        self.multi_guild = multi_guild
+        self.guild_contexts = {}
+        self.synced_guilds = set()
         self.register_commands()
+        self.primary_callbacks = {c.name: c.callback for c in self.tree.get_commands()}
+        if multi_guild:
+            for command in self.tree.get_commands():
+                command._callback = self.guild_router(command)
+
+    def guild_context(self, guild_id):
+        if guild_id == self.guild_id:
+            return self
+        if not self.multi_guild or guild_id is None:
+            raise PermissionError("Use this command in a server where the bot is installed.")
+        if guild_id not in self.guild_contexts:
+            self.guild_contexts[guild_id] = GuildScope(self, guild_id)
+        return self.guild_contexts[guild_id]
+
+    def guild_router(self, command):
+        @wraps(command.callback)
+        async def routed(interaction, **kwargs):
+            context = self.guild_context(interaction.guild_id)
+            callback = (
+                self.primary_callbacks[command.name]
+                if context is self
+                else context.tree.get_command(command.name).callback
+            )
+            return await callback(interaction, **kwargs)
+
+        return routed
+
+    async def sync_server(self, guild_id):
+        if guild_id not in self.synced_guilds:
+            guild = discord.Object(id=guild_id)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            self.synced_guilds.add(guild_id)
 
     def test_session(self, user_id):
         if user_id not in self.test_sessions:
@@ -751,11 +792,13 @@ class ClanBot(discord.Client):
         self.add_view(TestLauncher(self))
         directory = Path(self.store.path).parent / "test-data"
         if directory.exists():
-            for path in directory.glob(f"{self.guild_id}-*.db"):
-                user_text = path.stem.split("-")[-1]
-                if not user_text.isdecimal():
+            pattern = "*-*.db" if self.multi_guild else f"{self.guild_id}-*.db"
+            for path in directory.glob(pattern):
+                server_text, _, user_text = path.stem.partition("-")
+                if not server_text.isdecimal() or not user_text.isdecimal():
                     continue
-                session = self.test_session(int(user_text))
+                context = self.guild_context(int(server_text))
+                session = context.test_session(int(user_text))
                 for welcome in session.store.rows(
                     "SELECT * FROM clan_onboarding WHERE state!='left'"
                 ):
@@ -781,24 +824,38 @@ class ClanBot(discord.Client):
                 RSVPView(self, row["event_id"], row["user_id"]),
                 message_id=row["message_id"],
             )
-        guild = discord.Object(id=self.guild_id)
-        for welcome in self.store.rows(
-            "SELECT * FROM clan_onboarding WHERE guild_id=? AND state!='left'", (self.guild_id,)
-        ):
+        for welcome in self.store.rows("SELECT * FROM clan_onboarding WHERE state!='left'"):
+            if not self.multi_guild and welcome["guild_id"] != self.guild_id:
+                continue
             self.add_view(
-                OnboardingView(self, welcome["user_id"], welcome["nonce"]),
+                OnboardingView(
+                    self.guild_context(welcome["guild_id"]), welcome["user_id"], welcome["nonce"]
+                ),
                 message_id=welcome["message_id"],
             )
-        self.tree.copy_global_to(guild=guild)
-        await self.tree.sync(guild=guild)
+        if self.multi_guild:
+            await self.tree.sync()
+        await self.sync_server(self.guild_id)
         self.scheduler.start()
 
     async def on_ready(self):
         LOG.info("Connected as bot %s; configured server %s", self.user.id, self.guild_id)
         # Catch joins missed during downtime without DMing the existing server population.
-        guild = self.get_guild(self.guild_id)
-        if guild is not None:
-            since = self.store.onboarding_since(self.guild_id)
+        guilds = self.guilds if self.multi_guild else [self.get_guild(self.guild_id)]
+        for guild in guilds:
+            if guild is None:
+                continue
+            if self.multi_guild:
+                try:
+                    await self.sync_server(guild.id)
+                except discord.HTTPException as exc:
+                    LOG.warning(
+                        "Command sync failed: guild=%s type=%s", guild.id, type(exc).__name__
+                    )
+                if not self.store.settings(guild.id):
+                    continue
+            context = self.guild_context(guild.id)
+            since = self.store.onboarding_since(guild.id)
             try:
                 async for member in guild.fetch_members(limit=None):
                     if (
@@ -806,17 +863,33 @@ class ClanBot(discord.Client):
                         and member.joined_at
                         and int(member.joined_at.timestamp()) >= since
                     ):
-                        await send_welcome(self, member)
+                        await send_welcome(context, member)
             except Exception as exc:
                 LOG.warning("New-member catch-up paused: %s", type(exc).__name__)
 
     async def on_member_join(self, member):
-        if member.guild.id == self.guild_id and not member.bot:
-            await send_welcome(self, member)
+        enabled = (
+            self.store.settings(member.guild.id)
+            if self.multi_guild
+            else member.guild.id == self.guild_id
+        )
+        if enabled and not member.bot:
+            await send_welcome(self.guild_context(member.guild.id), member)
 
     async def on_member_remove(self, member):
-        if member.guild.id == self.guild_id:
-            self.store.member_left(self.guild_id, member.id)
+        if self.multi_guild or member.guild.id == self.guild_id:
+            self.store.member_left(member.guild.id, member.id)
+
+    async def on_guild_join(self, guild):
+        if self.multi_guild:
+            await self.sync_server(guild.id)
+
+    async def on_guild_remove(self, guild):
+        self.synced_guilds.discard(guild.id)
+        # Stop future recurring sends if the bot is removed; never replay on reinvite.
+        if self.multi_guild:
+            with self.store.db() as conn:
+                conn.execute("UPDATE clan_schedules SET enabled=0 WHERE guild_id=?", (guild.id,))
 
     async def close(self):
         self.scheduler.cancel()
@@ -1162,12 +1235,18 @@ class ClanBot(discord.Client):
                     reason="Bot owner repaired manager-only permissions",
                 )
             else:
+                if not guild.me.guild_permissions.manage_channels:
+                    raise PermissionError(
+                        "The bot needs Manage Channels in this server. Reinvite it using "
+                        "the setup link with its requested permissions, then run /clan-setup."
+                    )
                 channel = await guild.create_text_channel(
                     "clan-management",
                     overwrites=overwrites,
                     reason="Private clan event lists; selected managers only",
                 )
             self.store.configure(guild.id, channel.id, now_ts())
+            self.store.onboarding_since(guild.id)
             await channel.send(
                 "**Bot testing** — only the manager who clicks receives test messages.",
                 view=TestLauncher(self),
@@ -1175,6 +1254,8 @@ class ClanBot(discord.Client):
             await private_reply(
                 interaction,
                 f"Private channel: {channel.mention}. Next use /management, /recipients, then /schedule. "
+                "Before assigning managers, enable Manage Permissions for the bot only "
+                "in this channel under Edit Channel > Permissions > Advanced permissions. "
                 "Discord server owners and administrators can bypass channel permissions.",
             )
 
@@ -1554,6 +1635,48 @@ class ClanBot(discord.Client):
             )
 
 
+class ScopedCommands:
+    """Build guild-bound callbacks without opening another Discord connection."""
+
+    def __init__(self):
+        self.commands = {}
+
+    def command(self, **kwargs):
+        def register(callback):
+            command = app_commands.Command(callback=callback, **kwargs)
+            self.commands[command.name] = command
+            return command
+
+        return register
+
+    def error(self, callback):
+        return callback
+
+    def get_command(self, name):
+        return self.commands[name]
+
+
+class GuildScope:
+    """Fixed server scope for command forms, DM buttons and isolated test stores."""
+
+    require_owner = ClanBot.require_owner
+    require_manager = ClanBot.require_manager
+    test_session = ClanBot.test_session
+    target_summary = ClanBot.target_summary
+
+    def __init__(self, client, guild_id):
+        self.client = client
+        self.guild_id = guild_id
+        self.owner_id = client.owner_id
+        self.store = client.store
+        self.test_sessions = {}
+        self.tree = ScopedCommands()
+        ClanBot.register_commands(self)
+
+    def __getattr__(self, name):
+        return getattr(self.client, name)
+
+
 def main():
     load_dotenv(Path(__file__).with_name(".env"))
     token = os.getenv("DISCORD_TOKEN", "")
@@ -1574,7 +1697,7 @@ def main():
     from instance_lock import instance_lock
 
     with instance_lock(path + ".lock"):
-        client = ClanBot(Store(path), owner_id, guild_id)
+        client = ClanBot(Store(path), owner_id, guild_id, multi_guild=True)
         client.run(token, log_level=logging.INFO)
 
 

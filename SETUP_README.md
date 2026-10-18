@@ -18,6 +18,14 @@ Complete the following Discord steps before expecting automatic event invitation
 
 ## 2. Choose the leader and officers
 
+For another server, first use the
+[server invite link](https://discord.com/oauth2/authorize?client_id=1561079116378406982&integration_type=0&scope=bot%20applications.commands&permissions=101392).
+Choose **Add to Server** and authorize the requested channel/message permissions.
+The bot owner must also be a member and run `/clan-setup` there. Each server's setup
+and player data are separate. Only the configured bot owner assigns managers;
+the invite link or application ID does not grant that authority. No new AWS host
+or server-ID configuration change is needed.
+
 In the clan's Discord server, run:
 
 ```text

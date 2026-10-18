@@ -191,3 +191,30 @@ with HTTP 200, bot channel Manage Permissions remained enabled, @everyone View
 Channel remained denied, and the access list was unchanged. AWS Gateway reconnected.
 The slash command itself still awaits the configured owner's retry; the browser
 session used for the permission repair belongs to the server owner.
+
+## Multi-server support — October 17, 2026 Eastern
+
+Owner authorized use in any server that installs the app. Removed the production
+single-server restriction while preserving the configured owner's exclusive power
+to assign each server's six managers. One Gateway and scheduler serve all servers;
+GuildScope binds command callbacks, modal state, welcome flows and tests to a fixed
+server without mutating a global server ID. Existing guild-scoped SQLite tables
+are unchanged. New servers require owner setup before automatic onboarding; their
+schedules default paused. Removing the bot pauses that server's recurring schedules.
+
+Global commands plus per-guild sync on ready/join support existing and new installs.
+Persistent welcome/test views restore for all server databases. Test component
+namespaces include the server for secondary servers, retaining legacy primary IDs.
+Live read-only inspection found the public bot already installed in Buddiez and
+CallMeFort's server. Default install permissions were zero; updated the app's server
+install defaults to 101392 (Manage Channels, View Channel, Send Messages, Attach
+Files, Read Message History), retaining existing user-install settings. This changes
+future authorization requests, not existing guild grants. No Administrator or guild
+Manage Roles requested. Channel-only Manage Permissions still needs a server admin
+after channel creation. An invite URL is documented in README and setup guide.
+
+Validation: all 90 automated tests passed, including owner/manager isolation,
+cross-server RSVP rejection, fixed DM signup scope, per-server test stores/buttons,
+restart restoration, new-server sync and server-specific removal handling. Ruff
+check/format and Git whitespace checks passed. Production rollout follows this
+entry; live player RSVP/new-join acceptance remains a separate manual check.

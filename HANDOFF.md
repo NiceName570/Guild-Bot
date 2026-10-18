@@ -12,7 +12,20 @@ Verified: initial Gateway connection, integrity-checked private S3 backup, actua
 EC2 reboot, then automatic service startup and a fresh Gateway connection.
 Private config and DB are mode 600 owned by clanbot; backup timer enabled.
 Configuration, DB and isolated test databases were migrated. The local copy is
-now stale and must not overwrite production. All 80 automated tests passed.
+now stale and must not overwrite production. All 90 automated tests passed.
+
+Latest scope: user authorized use in any server that installs the bot. Production
+uses multi_guild=True: global commands plus immediate per-guild sync on ready/join,
+one Gateway and scheduler, with GuildScope instances binding callbacks/forms to a
+fixed server. DB rows remain guild-scoped. Original BOT_OWNER_ID alone assigns
+managers in every server; it must be a member to set up that server. CLAN_GUILD_ID
+is only the default server for old DM test launchers. No onboarding runs in a new
+server until /clan-setup. Tests and component IDs are isolated per server/tester,
+with original primary-server test IDs preserved for compatibility. Startup restores
+all server-bound welcome/test views; removal pauses only that server's schedules.
+The Public Bot setting was already true. The bot was found installed in Buddiez
+and CallMeFort's server. Live player acceptance in the new server remains separate
+from command registration and automated isolation tests.
 
 Post-deployment /clan-setup failed with Discord Forbidden because Manage Channels
 does not permit changing channel overwrites. Owner explicitly approved Manage
