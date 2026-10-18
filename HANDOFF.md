@@ -12,7 +12,14 @@ Verified: initial Gateway connection, integrity-checked private S3 backup, actua
 EC2 reboot, then automatic service startup and a fresh Gateway connection.
 Private config and DB are mode 600 owned by clanbot; backup timer enabled.
 Configuration, DB and isolated test databases were migrated. The local copy is
-now stale and must not overwrite production. All 77 automated tests passed again.
+now stale and must not overwrite production. All 80 automated tests passed.
+
+Post-deployment /clan-setup failed with Discord Forbidden because Manage Channels
+does not permit changing channel overwrites. Owner explicitly approved Manage
+Permissions only in #clan-management; enabled through Discord channel settings.
+Setup and /management now preserve that channel-only bot permission and explain
+the missing permission before attempting edits. Regression tests cover repeated
+setup, manager changes, private access, and failure before edits when missing.
 
 Free plan ACTIVE at preflight, $100 USD credits, expiration April 17, 2027.
 No Paid upgrade. Check current credits in AWS Settings > Billing. Required hosting

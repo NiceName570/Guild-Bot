@@ -10,7 +10,7 @@ Intent and Manage Channels are enabled; the private management channel exists.
 The leader/four officers still need assigning and all three weekly schedules
 remain **paused**. Daily private database backups upload to S3.
 
-The current build passed **77 automated tests**. These include mocked Discord
+The current build passed **80 automated tests**. These include mocked Discord
 interactions; a real event RSVP, new-member signup, and scheduled send still need
 user verification in Discord. The original Oracle bot was not contacted or changed.
 Its historical evidence is preserved in [docs/ORIGINAL_README.md](docs/ORIGINAL_README.md).

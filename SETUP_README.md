@@ -32,6 +32,12 @@ making six managers in total.
 manage events and see the private lists, but cannot replace managers.
 
 If the management channel ever needs its access repaired, run `/clan-setup`.
+The bot needs **Manage Permissions inside #clan-management** to repair access and
+update the manager list. This channel-only permission has been enabled. For a new
+installation, a server administrator enables it under Edit Channel > Permissions >
+Advanced permissions > select buddysclanmanager > Manage Permissions > Allow > Save.
+Manage Channels alone does not allow editing permission overwrites. The bot
+preserves this permission during setup and manager changes.
 Discord server owners and people with Administrator can bypass private-channel
 permissions; keep that permission limited to trusted people.
 

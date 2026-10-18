@@ -169,3 +169,25 @@ All 77 tests, Ruff check/format and whitespace validation passed. Manager assign
 live player acceptance, and enabling paused schedules remain owner setup tasks.
 No real clan invitation was sent for deployment verification. Required AWS resources
 are kept to provide requested hosting; temporary staging resources were removed.
+
+## Manager-channel permission fix — October 17, 2026 Eastern
+
+Owner supplied a screenshot of /clan-setup failing. AWS journal showed Forbidden;
+live REST confirmed Manage Channels present but Manage Roles absent, including the
+channel's Manage Permissions overwrite. Discord documentation confirms overwrite
+edits require this separate permission. Owner explicitly approved granting Manage
+Permissions only in #clan-management. Enabled and saved on the bot member's channel
+overwrite through Discord's web UI; no guild role permission was expanded.
+
+Fixed setup and manager updates to retain the approved bot overwrite, rather than
+remove it and fail on the following edit. Missing permission now produces actionable
+instructions before editing. Added regressions for repeated setup, manager changes,
+privacy and missing permission. All 80 tests and Ruff checks passed. Backed up the
+live DB, installed the patch on AWS, matched source hashes, and restarted the cloud
+service. No local production process was started.
+
+Live verification after deployment: Discord accepted a no-change overwrite update
+with HTTP 200, bot channel Manage Permissions remained enabled, @everyone View
+Channel remained denied, and the access list was unchanged. AWS Gateway reconnected.
+The slash command itself still awaits the configured owner's retry; the browser
+session used for the permission repair belongs to the server owner.

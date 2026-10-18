@@ -45,7 +45,7 @@ def invitation(event):
     )
 
 
-def channel_overwrites(guild, people):
+def channel_overwrites(guild, people, *, manage_permissions=False):
     return {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
         guild.me: discord.PermissionOverwrite(
@@ -53,6 +53,7 @@ def channel_overwrites(guild, people):
             send_messages=True,
             read_message_history=True,
             attach_files=True,
+            manage_roles=True if manage_permissions else None,
         ),
         **{
             person: discord.PermissionOverwrite(
@@ -62,6 +63,15 @@ def channel_overwrites(guild, people):
             if person.id != guild.me.id
         },
     }
+
+
+def require_channel_permission_management(channel):
+    if not channel.permissions_for(channel.guild.me).manage_roles:
+        raise PermissionError(
+            "Enable Manage Permissions for buddysclanmanager in "
+            f"#{channel.name}: Edit Channel > Permissions > Advanced permissions. "
+            "This is needed to maintain the private manager access list."
+        )
 
 
 def check_private(channel, allowed_ids):
@@ -1146,8 +1156,9 @@ class ClanBot(discord.Client):
                 channel = await guild.fetch_channel(setting["channel_id"])
                 if not isinstance(channel, discord.TextChannel):
                     raise ValueError("Configured manager channel is not a text channel.")
+                require_channel_permission_management(channel)
                 await channel.edit(
-                    overwrites=overwrites,
+                    overwrites=channel_overwrites(guild, people, manage_permissions=True),
                     reason="Bot owner repaired manager-only permissions",
                 )
             else:
@@ -1190,8 +1201,11 @@ class ClanBot(discord.Client):
             await interaction.response.defer(ephemeral=True)
             channel = await interaction.guild.fetch_channel(setting["channel_id"])
             owner = await interaction.guild.fetch_member(self.owner_id)
+            require_channel_permission_management(channel)
             await channel.edit(
-                overwrites=channel_overwrites(interaction.guild, [owner, *members]),
+                overwrites=channel_overwrites(
+                    interaction.guild, [owner, *members], manage_permissions=True
+                ),
                 reason="Bot owner updated the six manager assignments",
             )
             self.store.set_managers(
