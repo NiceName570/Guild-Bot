@@ -251,3 +251,12 @@ Reports show dashes for unknown values. Tests cover blank/full/partial submissio
 legacy migration and restart, partial manager saves and explicit revocation,
 optional command metadata, schedule defaults and signup fallback. All 97 tests,
 Ruff check/format and whitespace validation passed. AWS rollout follows.
+
+AWS rollout completed from exact commit 3ec22fce236b9deb7da791c59153f9d3e04f5d55.
+Took a private backup, verified both source hashes, preserved prior files, installed
+and restarted the existing service. Gateway reconnected. Live Discord REST confirms
+leader, officer1–4 and clear all have required=false in both installed servers.
+Live DB integrity is OK and the additive nullable-stat table exists. A temporary,
+isolated on-host database accepted all-blank Going and verified optional modal
+fields, without logging into another bot or contacting players. No production
+manager assignments, recipient choices or schedule enabled flags were changed.
