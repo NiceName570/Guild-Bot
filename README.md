@@ -3,12 +3,12 @@
 Automatic private event invitations and RSVP stats for a Diablo Immortal clan.
 Built on the existing Python/discord.py bot on branch `clan-manager-aws`.
 
-**Status checked October 17, 2026:** `buddysclanmanager` is running on the developer's
-Windows PC in the configured clan server, with **17 guild slash commands** registered.
-Server Members Intent is enabled, Manage Channels is granted, and the management
-channel has been created. The leader/four officers have not yet been assigned, and
-all three weekly schedules are **paused**. There are no live events or confirmed
-clan registrations in the current database. **AWS deployment is not complete.**
+**Status checked October 17, 2026 (Eastern):** `buddysclanmanager` runs only on
+AWS EC2 in **us-east-2**, with automatic startup and crash restart. This Windows PC
+is not hosting it. All 17 guild slash commands are registered. Server Members
+Intent and Manage Channels are enabled; the private management channel exists.
+The leader/four officers still need assigning and all three weekly schedules
+remain **paused**. Daily private database backups upload to S3.
 
 The current build passed **77 automated tests**. These include mocked Discord
 interactions; a real event RSVP, new-member signup, and scheduled send still need
@@ -42,40 +42,13 @@ every recipient, RSVP, stats, and DM delivery outcome. Only the configured bot
 owner can assign those six positions. Discord server owners/Administrators can
 bypass channel permissions; the bot cannot prevent that platform behavior.
 
-## Local setup
+## Hosting and setup
 
-Python 3.11+ (3.12 tested):
-
-```powershell
-python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements-frozen.txt
-if (-not (Test-Path -LiteralPath '.env')) { Copy-Item .env.example .env }
-```
-
-For a local setup window with a masked token field, run
-`./.venv/Scripts/pythonw.exe configure_discord.py`. It asks for your Discord user
-ID, application ID, public key, token, and optional clan server ID. Save privately
-writes a user-restricted `.env` without starting the bot or making network calls.
-Existing setting values are preserved; the file is rewritten in normalized form.
-
-Or fill in `.env` privately: DISCORD_TOKEN, BOT_OWNER_ID (the builder's Discord user
-ID), CLAN_GUILD_ID (the target clan's server ID), AWS_REGION=us-east-2. Enable the
-Server Members Intent in the Discord Developer Portal. The bot needs Manage
-Channels, View Channels, Send Messages, Read Message History, Attach Files, and
-applications.commands; Administrator is unnecessary. Setup requires the bot owner
-to be a member of that server.
-
-**Starting connects to Discord and can send due invitations once schedules are
-enabled.** Use a separate test application/token or coordinate shutdown of the old
-host before using its token. No secrets or real player data are in this branch.
-
-```powershell
-./.venv/Scripts/python.exe bot.py
-```
-
-The owner runs `/clan-setup`, `/management`, then `/recipients` and
-`/recipient-preview` for each schedule. `/schedule` opens the message editor and
-preview; Save schedule enables automatic delivery. `/schedules` shows state.
+The production host is EC2 `i-05620ede0ebe795df` in us-east-2. No PC needs to stay
+on. Use [SETUP_README.md](SETUP_README.md) to assign managers, select recipients,
+test privately, and enable schedules from Discord. Use [docs/AWS.md](docs/AWS.md)
+for service status, restarts, backups, and maintenance. Do not start a local copy
+with the production token.
 
 ## Discord commands
 
@@ -152,11 +125,10 @@ flow. Do not replace or delete an old DB without a private verified backup.
 
 ## AWS and validation
 
-AWS Free plan only, us-east-2. See [docs/AWS.md](docs/AWS.md) for the read-only plan
-preflight, proposed EC2 deployment, private configuration, backups, and live checks.
-Free-plan EC2 consumes credits; hosting is not indefinitely free. The plan closes
-at credit exhaustion or its duration limit. Nothing auto-upgrades or creates cloud
-resources. Actual project plan/credits/permissions still need live verification.
+AWS Free plan is ACTIVE; the deployment preflight reported $100 in credits and
+expiry April 17, 2027. EC2, its public IPv4 address, disk, and S3 consume credits;
+hosting is not indefinitely free. No Paid upgrade was performed. Check current
+remaining credits in AWS Settings > Billing. See [docs/AWS.md](docs/AWS.md).
 
 Run offline validation (no Discord login, AWS calls, or player DMs):
 
@@ -165,7 +137,7 @@ Run offline validation (no Discord login, AWS calls, or player DMs):
 ```
 
 Source: `bot.py` (Discord UI/dispatch), `clan.py` (SQLite/rules/calendar),
-`instance_lock.py` (single-process protection), `deploy/aws/` (staging/preflight).
+`instance_lock.py` (single-process protection), `deploy/aws/` (host setup, private bundling, preflight, and S3 backups).
 Full decisions: [docs/APPROVED_SPEC.md](docs/APPROVED_SPEC.md).
 
 ## Finish clan setup
@@ -179,8 +151,8 @@ Full decisions: [docs/APPROVED_SPEC.md](docs/APPROVED_SPEC.md).
    announcements, onboarding, and the calendar using only the tester's account.
 5. Use `/schedule` separately for thursday, saturday, and sunday, review the preview,
    and save with enabled=true. This enables real automatic messages at the listed times.
-6. Complete the AWS preflight and deployment in [docs/AWS.md](docs/AWS.md) when
-   installation/authentication is available. Do not confuse local uptime with AWS hosting.
+6. Keep the AWS host running; no Windows launch is needed. Review Free-plan credits
+   and export a private backup before plan expiry.
 
-Do not run a second production process while the current bot is running. See the
-handoff for current local paths, backup, restart, and verification instructions.
+Do not run a second production process. See the handoff for AWS operations and
+verification evidence.

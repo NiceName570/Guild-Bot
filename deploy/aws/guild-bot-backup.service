@@ -6,4 +6,6 @@ Type=oneshot
 User=clanbot
 Group=clanbot
 UMask=0077
-ExecStart=/opt/guild-bot/venv/bin/python /opt/guild-bot/backup.py
+Environment=AWS_REGION=us-east-2
+EnvironmentFile=/etc/clanbot-backup.env
+ExecStart=/opt/guild-bot/venv/bin/python /opt/guild-bot/cloud_backup.py

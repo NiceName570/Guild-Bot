@@ -1,5 +1,46 @@
 # Buddys clan manager — developer handoff
 
+## Current AWS-only handoff — October 17, 2026 Eastern
+
+The owner's latest instruction is AWS hosting only. **Do not restart bot.py on
+Windows or configure Windows autostart.** No local bot process is running.
+Production is EC2 `i-05620ede0ebe795df` (BuddysClanManager) in us-east-2, project
+`673498377045`. Official AWS MCP authentication replaced the need for a local CLI;
+the earlier blocked installer was not retried or bypassed.
+
+Verified: initial Gateway connection, integrity-checked private S3 backup, actual
+EC2 reboot, then automatic service startup and a fresh Gateway connection.
+Private config and DB are mode 600 owned by clanbot; backup timer enabled.
+Configuration, DB and isolated test databases were migrated. The local copy is
+now stale and must not overwrite production. All 77 automated tests passed again.
+
+Free plan ACTIVE at preflight, $100 USD credits, expiration April 17, 2027.
+No Paid upgrade. Check current credits in AWS Settings > Billing. Required hosting
+resources stay for the requested AWS-only service. See docs/AWS.md for maintenance,
+resources and backup/restore. First backup: backups/guild-20261018-032843-871440.db
+in private bucket buddys-clanbot-673498377045-us-east-2. Export off-AWS before expiry.
+
+Repository is PUBLIC: https://github.com/NiceName570/guild-bot, branch
+clan-manager-aws. Branch authorship was corrected to NiceName570 with authorization;
+old attribution is preserved in a private local Git bundle. Main remains unchanged;
+no PR opened. Pushing GitHub does not deploy production.
+
+Remaining: owner assigns leader/four officers, exercises /test-bot privately,
+registers/selects recipients, inspects previews and enables schedules when ready.
+All three schedules stayed paused at migration. No real clan invitation was sent
+to test hosting. Live RSVP/new-join/recurring-send acceptance remains unverified.
+
+Deployment source additions: cloud_backup.py for scoped same-Region S3 uploads,
+requirements.txt for boto3, build_bundle.py for private migration snapshots, and
+updated setup/systemd backup configuration. No static AWS keys installed.
+Never commit .env, DBs, archives, logs, or signed URLs.
+
+## Historical implementation snapshot
+
+The snapshot below preserves the paper trail. Its local-running status, private
+repository wording, old commit attribution, AWS blocker and local launch steps
+are superseded by the current section above. Follow docs/AWS.md for operation.
+
 Snapshot: October 17, 2026. This is an implementation and operations handoff, not a
 claim of complete production rollout. Preserve the original project and paper trail.
 

@@ -2,22 +2,19 @@
 
 This guide explains how to set up and use **buddysclanmanager** in Discord.
 
-The bot currently runs on the developer's **Windows PC**. AWS hosting is prepared
-but has not been deployed. Keeping this PC awake and connected keeps the local bot
-available. It does not automatically start when Windows starts.
+The bot runs on **AWS in us-east-2**, independently of this PC. It starts when
+the AWS host boots and restarts if its process crashes. You can close Discord,
+close this project, or turn off your PC.
 
-## 1. What is already set up on this PC
+## 1. What is already set up
 
-- The application, bot token, your Discord user ID, and clan server ID are saved
-  privately in the local `.env` file.
-- Server Members Intent is enabled.
-- The bot has Manage Channels permission.
-- The private management channel has been created.
-- The bot has 17 slash commands and a private **Test bot** button.
+- Private Discord configuration and the saved database are installed on AWS.
+- Server Members Intent and Manage Channels are enabled.
+- The private management channel exists, with 17 slash commands and private tests.
+- Daily private database backups upload to S3.
 
-The last checked state had all weekly schedules paused and the leader/four officer
-positions unassigned. Complete the following Discord steps before expecting real
-automatic event invitations.
+Weekly schedules remain paused and the leader/four officer positions are unassigned.
+Complete the following Discord steps before expecting automatic event invitations.
 
 ## 2. Choose the leader and officers
 
@@ -146,79 +143,49 @@ within about 30 seconds, and uses multiple pages for a large clan.
 
 Live event history is kept for 90 days. Latest player stats remain for future forms.
 
-## 8. How to start or stop it on Windows
+## 8. How it runs on AWS
 
-The project is here:
+There is nothing to start on Windows. Production runs as `guild-bot.service` on
+EC2 instance `i-05620ede0ebe795df` in **us-east-2 (Ohio)**. It connects outward to
+Discord; no inbound server ports are open. Do not run `bot.py` locally using the
+production token.
 
-```text
-C:\Users\crucial\Desktop\DiscordBot4Buddys\guild-bot
+For maintenance, open AWS Console > EC2 > Instances in us-east-2, select
+**BuddysClanManager**, and use **Connect > Session Manager**. Then:
+
+```bash
+sudo systemctl status guild-bot --no-pager
+sudo journalctl -u guild-bot -n 50 --no-pager
+sudo systemctl restart guild-bot
 ```
 
-The bot was already started in the background during setup. **Do not start a second
-copy while it is running.** If it has stopped, open PowerShell and run:
+No AWS CLI installation on this PC is needed. Restarting preserves responses and
+persistent invitation buttons. Open `/test-bot` again for a fresh test panel.
+The scheduler checks every 30 seconds. Missed sends catch up only before event
+start; failed/uncertain sends are shown for review instead of blindly resent.
 
-```powershell
-Set-Location 'C:\Users\crucial\Desktop\DiscordBot4Buddys\guild-bot'
-./.venv/Scripts/python.exe bot.py
-```
+## 9. Private settings and updates
 
-Leave this PowerShell window open while using that foreground launch. Look for
-`connected to Gateway` in its output. To stop a foreground launch, press **Ctrl+C**.
-If it reports another bot process is using the database, a copy is already running;
-do not delete the lock/database to bypass it.
+Production files are under `/opt/guild-bot` on AWS. Its `.env` belongs to `clanbot`
+and is readable only by that user and root. Never paste its contents into chat,
+Discord, Git, or command output. Update configuration securely on the AWS host,
+then restart `guild-bot`. Editing the old local `.env` does not update AWS.
 
-For the existing background copy, use the process-verification/restart instructions
-in [HANDOFF.md](HANDOFF.md), rather than closing random Python processes. Closing
-Discord itself does not stop the Python bot.
+The Windows checkout is for development and offline tests. Pushing GitHub does
+not automatically deploy new code. Technical update and restore instructions are
+in [docs/AWS.md](docs/AWS.md).
 
-The bot checks schedules every 30 seconds and stores its state in `guild.db`.
-Restarting preserves responses and persistent DM buttons. If an invitation time
-was missed during downtime, it catches up only if the event has not started.
-Uncertain/failed sends are recorded instead of automatically spamming a retry.
-If the PC sleeps, shuts down, or loses Internet, the bot cannot send while offline.
+## 10. Backups and Free-plan status
 
-## 9. Change private settings or install dependencies again
+Daily backups run at midnight UTC and upload to the private S3 bucket
+`buddys-clanbot-673498377045-us-east-2`, under `backups/`. The host keeps 14
+snapshots; S3 expires backup objects after 14 days. Download private copies outside
+AWS regularly. The backup contains player data, not the separate token file.
 
-To reopen the local setup form:
-
-```powershell
-Set-Location 'C:\Users\crucial\Desktop\DiscordBot4Buddys\guild-bot'
-./.venv/Scripts/pythonw.exe configure_discord.py
-```
-
-The token is masked and saved privately. This form saves settings; it does not
-start or restart the bot. Restart the existing bot after changing its configuration.
-Never paste the token into Discord, share `.env`, or commit it to Git.
-
-If setting up a fresh checkout on Windows with Python 3.11+ installed:
-
-```powershell
-python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements-frozen.txt
-./.venv/Scripts/pythonw.exe configure_discord.py
-```
-
-Fill in all five Discord fields, including the target clan server ID, before
-starting. Keep AWS_REGION at the approved `us-east-2`. The bot must be installed
-in the target server with Server Members Intent enabled and the permissions listed
-in [README.md](README.md). Only one host should use the production bot token.
-
-## 10. Backups and AWS
-
-Take a private online database backup from the project folder:
-
-```powershell
-./.venv/Scripts/python.exe deploy/aws/backup.py --source guild.db --destination backups
-```
-
-Keep `.env`, `guild.db`, and backups private. The backup command does not include
-the token file; preserve that securely and separately. Keep an additional copy
-away from the running PC before moving hosts.
-
-AWS is **not hosting this bot yet**. The approved target is Free plan, us-east-2,
-with no out-of-pocket spending. Installation/authentication and a live plan check
-are still pending; see [docs/AWS.md](docs/AWS.md) and [HANDOFF.md](HANDOFF.md).
-Do not start an AWS copy while the local production copy is still running.
+The deployment preflight verified an active **Free plan**, $100 starting credits,
+and expiry **April 17, 2027**. Hosting consumes credits and can stop sooner if they
+run out. Check **AWS Settings > Billing** for the current balance. No Paid upgrade
+was performed. Preserve a private database and configuration copy before expiry.
 
 ## Common problems
 

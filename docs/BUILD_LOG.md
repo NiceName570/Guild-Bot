@@ -138,3 +138,34 @@ the installer policy rejection, next steps, safe operation, testing evidence,
 privacy boundaries, and later-requested onboarding/testing features. Historical
 entries and the original README remain preserved. No source behavior or live
 configuration changed during this documentation update.
+
+## AWS-only deployment — October 17, 2026 Eastern / October 18 UTC
+
+Owner explicitly requested fixing offline hosting and running only on AWS.
+Official AWS MCP authenticated to project 673498377045, allowing deployment without
+the previously blocked local CLI installer. Verified Free/ACTIVE, $100 credits,
+expiry April 17, 2027; no Paid upgrade. All resources are in us-east-2 except
+global IAM. Windows bot remained stopped and no autostart was added.
+
+Created private encrypted S3 staging/backup bucket, scoped EC2 role/profile,
+outbound-only security group, and t3.micro Ubuntu host i-05620ede0ebe795df with
+encrypted retained 12 GiB disk, IMDSv2 and Standard CPU credits. Used consistent
+SQLite snapshots and private checksum-verified configuration transfer. Initial
+Python upload hit local certificate trust failure; native Windows TLS upload
+succeeded without disabling verification. No secret values were printed.
+
+Systemd bot connected to Gateway. First integrity-checked backup uploaded privately
+to S3 (118784 bytes, AES256). Rebooted EC2 and observed automatic service startup
+and a new Gateway session; backup timer enabled. Configuration/database permissions
+verified 600 clanbot. All EC2 reachability checks passed. Removed staging archive
+from host and S3, and removed temporary S3 read permission from instance role.
+Daily backups retain 14 local files; S3 backup lifecycle is 14 days.
+
+Added cloud_backup.py, boto3 dependency, private build_bundle.py and updated setup
+and backup units. Updated README/setup/handoff/AWS guide for AWS-only hosting,
+preserving historical snapshots. A long documentation shell edit was blocked before
+execution with only blocked-by-policy reason; direct file patches completed it.
+All 77 tests, Ruff check/format and whitespace validation passed. Manager assignment,
+live player acceptance, and enabling paused schedules remain owner setup tasks.
+No real clan invitation was sent for deployment verification. Required AWS resources
+are kept to provide requested hosting; temporary staging resources were removed.

@@ -22,8 +22,11 @@ for file in bot.py clan.py instance_lock.py requirements-frozen.txt; do
     sudo install -m 600 -o clanbot -g clanbot "$ROOT/$file" "/opt/guild-bot/$file"
 done
 sudo install -m 600 -o clanbot -g clanbot "$ROOT/deploy/aws/backup.py" /opt/guild-bot/backup.py
+sudo install -m 600 -o clanbot -g clanbot "$ROOT/deploy/aws/cloud_backup.py" /opt/guild-bot/cloud_backup.py
+sudo install -m 600 -o clanbot -g clanbot "$ROOT/deploy/aws/requirements.txt" /opt/guild-bot/aws-requirements.txt
 sudo -u clanbot python3 -m venv /opt/guild-bot/venv
 sudo -u clanbot /opt/guild-bot/venv/bin/pip install -r /opt/guild-bot/requirements-frozen.txt
+sudo -u clanbot /opt/guild-bot/venv/bin/pip install -r /opt/guild-bot/aws-requirements.txt
 sudo install -m 644 "$ROOT/deploy/aws/guild-bot.service" /etc/systemd/system/guild-bot.service
 sudo install -m 644 "$ROOT/deploy/aws/guild-bot-backup.service" /etc/systemd/system/guild-bot-backup.service
 sudo install -m 644 "$ROOT/deploy/aws/guild-bot-backup.timer" /etc/systemd/system/guild-bot-backup.timer

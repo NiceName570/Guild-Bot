@@ -1,4 +1,73 @@
-# AWS deployment preparation — us-east-2 only
+# AWS production operations — us-east-2 only
+
+## Current deployment — October 17, 2026 Eastern
+
+The bot runs **only on AWS**, on EC2 `i-05620ede0ebe795df` (BuddysClanManager),
+project `673498377045`, Region **us-east-2**. Windows is not hosting it.
+Initial startup connected to Discord Gateway. An actual EC2 reboot then confirmed
+automatic startup and a fresh Gateway connection. EC2 reachability checks passed.
+
+Free plan was verified ACTIVE with $100 USD credits at preflight and expiration
+`2027-04-17T16:49:03.914Z`. No Paid upgrade. EC2, public IPv4, disk, and S3 consume
+credits; check the current balance in **AWS Settings > Billing**. This is not
+indefinitely free hosting. Confirm Region under AWS Settings > View all projects >
+Overview > Additional Info > Region before replacement work.
+
+| Resource | Configuration |
+| --- | --- |
+| EC2 | Ubuntu 24.04, t3.micro, Standard CPU credits, IMDSv2 required |
+| Disk | Encrypted 12 GiB gp3, vol-0f40d421956ba6e21, retained on termination |
+| Network | sg-0e16b1e72465d90c9: no ingress; outbound TCP 443 and 80 |
+| Management | Session Manager; no SSH key or open SSH port |
+| IAM | BuddysClanBotInstanceRole / BuddysClanBotInstanceProfile; SSM and scoped backup writes |
+| S3 | buddys-clanbot-673498377045-us-east-2; fully private, AES256, deny non-TLS |
+| Bot | guild-bot.service, enabled at boot, automatic process restart |
+| Backup | Daily midnight UTC; first integrity-checked upload succeeded |
+
+Termination protection is enabled. Retained disks still consume credits. Backups
+use temporary instance-role credentials, with no static AWS keys installed.
+Production files live under `/opt/guild-bot`. `.env` and `guild.db` are mode 600,
+owned by clanbot. All three schedules remain paused; finish manager assignment
+and private Discord acceptance tests before enabling sends.
+
+### Maintenance
+
+AWS Console > EC2 in us-east-2 > BuddysClanManager > Connect > Session Manager.
+The official AWS MCP connector also supports SSM Run Command. No local CLI needed.
+
+```bash
+sudo systemctl status guild-bot --no-pager
+sudo journalctl -u guild-bot -n 50 --no-pager
+sudo systemctl restart guild-bot
+sudo systemctl list-timers guild-bot-backup.timer --no-pager
+sudo systemctl start guild-bot-backup.service
+sudo journalctl -u guild-bot-backup.service -n 20 --no-pager
+```
+
+The unprivileged service restarts after ten seconds. Repeated failures trigger
+systemd's start limit; fix the cause, reset-failed, then start. Journal use is capped
+at 100 MiB. Never print `.env` or tokens. Do not start another production host.
+
+Backups keep 14 local snapshots and upload to the S3 `backups/` prefix with a 14-day
+lifecycle. Download private off-AWS copies regularly and before expiry; S3 in this
+project does not protect against loss of project access. Keep configuration
+separately. Snapshots retain deleted live rows until rotation; expiry is asynchronous.
+To restore, stop the bot, preserve a fresh backup, download the chosen snapshot,
+check SQLite integrity, install as guild.db owned by clanbot mode 600, then restart
+and verify Gateway. Never overwrite production with the stale Windows DB.
+
+GitHub pushes do not deploy. Back up and stage reviewed source separately; stop
+the service before replacing files, preserving `.env`, DB, backups and test-data.
+`deploy/aws/setup.sh` stages dependencies/units without starting. Historical Oracle
+scripts must not be used. `build_bundle.py` creates a private migration archive under
+`.git`, containing credentials and consistent DB snapshots; never publish it or use
+a stale local DB for routine updates. Remove deployment staging objects and their
+temporary GetObject permission after verification. Keep required hosting resources.
+
+### Historical preparation record
+
+The older notes below preserve the paper trail. Claims that AWS is pending or a
+local CLI is required are superseded above, as is the old host-only backup plan.
 
 **Status checked October 17, 2026: bot connected locally to Discord with 17
 guild slash commands; no AWS resources provisioned.** Discord credentials and IDs
